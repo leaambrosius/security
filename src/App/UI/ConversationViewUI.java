@@ -1,4 +1,4 @@
-package App;
+package App.UI;
 
 import javax.swing.*;
 import java.awt.*;
@@ -10,6 +10,7 @@ public class ConversationViewUI {
     private JTextArea messageDisplayArea;
     private JTextField messageInputField;
     private JButton sendButton;
+    private JButton backButton;
     private String recipientName;
 
     public ConversationViewUI(String recipientName) {
@@ -30,8 +31,20 @@ public class ConversationViewUI {
         messageInputField = new JTextField();
         frame.getContentPane().add(messageInputField, BorderLayout.SOUTH);
 
-
         sendButton = new JButton("Send");
+
+        backButton = new JButton("Back");
+
+        actionlistener();
+
+        frame.getContentPane().add(sendButton, BorderLayout.EAST);
+
+        frame.getContentPane().add(backButton, BorderLayout.NORTH);
+    }
+
+
+    public void actionlistener(){
+
         sendButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 String message = messageInputField.getText();
@@ -41,7 +54,14 @@ public class ConversationViewUI {
                 }
             }
         });
-        frame.getContentPane().add(sendButton, BorderLayout.EAST);
+
+        backButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                frame.dispose();
+                new MainScreenUI();
+            }
+        });
+
     }
 
     public void appendMessage(String sender, String message) {

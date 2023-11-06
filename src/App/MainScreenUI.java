@@ -16,6 +16,7 @@ public class MainScreenUI {
     public MainScreenUI() {
         initialize();
         activeConversations = new ArrayList<>();
+        setVisible(true);
     }
 
     private void initialize() {
@@ -29,6 +30,12 @@ public class MainScreenUI {
 
         startConversationButton = new JButton("Start New Conversation");
 
+        actionlistener();
+
+        frame.getContentPane().add(startConversationButton, BorderLayout.SOUTH);
+    }
+
+    public void actionlistener(){
         startConversationButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 String selectedRecipient = conversationsList.getSelectedValue();
@@ -36,11 +43,10 @@ public class MainScreenUI {
                     ConversationViewUI conversationView = new ConversationViewUI(selectedRecipient);
                     activeConversations.add(conversationView);
                     conversationView.setVisible(true);
+                    frame.dispose();;
                 }
             }
         });
-
-        frame.getContentPane().add(startConversationButton, BorderLayout.SOUTH);
     }
 
     public void setVisible(boolean visible) {
@@ -49,7 +55,7 @@ public class MainScreenUI {
 
     public static void main(String[] args) {
         MainScreenUI mainScreen = new MainScreenUI();
-        mainScreen.setVisible(true);
+
     }
 
 }

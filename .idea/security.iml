@@ -10,7 +10,7 @@
     <orderEntry type="module-library" exported="">
       <library>
         <CLASSES>
-          <root url="jar://$USER_HOME$/Desktop/bcprov-jdk18on-176.jar!/" />
+          <root url="jar://$MODULE_DIR$/../../3. Semester/privacy&amp;security/bcprov-jdk18on-176.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />

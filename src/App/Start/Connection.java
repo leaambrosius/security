@@ -16,7 +16,7 @@ public class Connection {
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException, SignatureException, InvalidKeyException {
         String ip = getIp();
         Client user = new Client(ip);
-        String serverAddress = "34.125.196.169";//"192.168.1.122"; // Replace with the server's IP address or hostname
+        String serverAddress = "localhost";//"192.168.1.122"; // Replace with the server's IP address or hostname
         int serverPort = 12345; // Replace with the server's port
 
         try (Socket socket = new Socket(serverAddress, serverPort);

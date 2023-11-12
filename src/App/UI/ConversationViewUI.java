@@ -2,8 +2,9 @@ package App.UI;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+
 
 public class ConversationViewUI {
     private JFrame frame;
@@ -36,30 +37,41 @@ public class ConversationViewUI {
         backButton = new JButton("Back");
 
         actionlistener();
+        keyListener();
 
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
 
         frame.getContentPane().add(backButton, BorderLayout.NORTH);
     }
 
+public void keyListener() {
+    messageInputField.addKeyListener(new KeyListener() {
+        @Override
+        public void keyTyped(KeyEvent e) {
+        }
+
+        @Override
+        public void keyPressed(KeyEvent e) {
+            if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                sendMessage();
+            }
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
+        }
+    });
+
+}
+
 
     public void actionlistener(){
 
-        sendButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                String message = messageInputField.getText();
-                if (!message.equals("")) {
-                    messageDisplayArea.append("Me: " + message + "\n");
-                    messageInputField.setText("");
-                }
-            }
-        });
+        sendButton.addActionListener(e -> sendMessage());
 
-        backButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                frame.dispose();
-                new MainScreenUI();
-            }
+        backButton.addActionListener(e -> {
+            frame.dispose();
+            new MainScreenUI();
         });
 
     }
@@ -70,6 +82,14 @@ public class ConversationViewUI {
 
     public void setVisible(boolean visible) {
         frame.setVisible(visible);
+    }
+
+    public void sendMessage(){
+        String message = messageInputField.getText();
+        if (!message.isEmpty()) {
+            messageDisplayArea.append("Me: " + message + "\n");
+            messageInputField.setText("");
+        }
     }
 
     public static void main(String[] args) {

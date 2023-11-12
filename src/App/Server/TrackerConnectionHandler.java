@@ -86,8 +86,8 @@ class TrackerConnectionHandler implements Runnable {
         String username = message.split("@")[1];
         User user = new User(username);
         if(!user.getUser()) {
-            return "No user found!";
+            return "PEER@NACK@USER_NOT_FOUND";
         }
-        return user.getIp() + "@" + user.getPort() + "@" + PublicKeyUtils.publicKeyToString(user.getPublicKey());
+        return "PEER" + "@" + user.getIp() + "@" + user.getPort() + "@" + PublicKeyUtils.publicKeyToString(user.getPublicKey());
     }
 }

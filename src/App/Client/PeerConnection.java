@@ -40,7 +40,6 @@ public class PeerConnection {
     }
 
     public void initiateChat() {
-        this.announceToPeer(this.host.username);
         this.initiateHandshake();
         this.startConversation();
     }
@@ -54,12 +53,12 @@ public class PeerConnection {
     public boolean announceToPeer(String username) {
         try {
             socket.setSoTimeout(TIMEOUT_SECONDS * 1000);
-            String announcement = "PEER_ANNOUNCEMENT:" + username;
+            String announcement = "PEER_ANNOUNCEMENT@" + username;
             String ciphertext = encryptMessageWithPublicKey(announcement);
             sendToPeer(ciphertext);
             String response = receiveFromPeer();
             String plaintext = decryptMessageWithPrivateKey(response);
-            if (!Objects.equals(plaintext, "PEER_ANNOUNCEMENT:ACK")) {
+            if (!Objects.equals(plaintext, "PEER_ANNOUNCEMENT@ACK")) {
                 throw new InvalidMessageException(plaintext);
             }
             return true;
@@ -76,7 +75,7 @@ public class PeerConnection {
             String announcement = receiveFromPeer();
             String plaintext = decryptMessageWithPrivateKey(announcement);
 
-            String[] plaintextParts = plaintext.split(":");
+            String[] plaintextParts = plaintext.split("@");
             if (plaintextParts.length != 2 && !Objects.equals(plaintextParts[0], "PEER_ANNOUNCEMENT")) {
                 throw new InvalidMessageException(plaintext);
             }
@@ -86,7 +85,8 @@ public class PeerConnection {
 
             if (this.verifyPeer(peerData)) {
                 this.peerData = peerData;
-                String ciphertext = encryptMessageWithPublicKey("PEER_ANNOUNCEMENT:ACK");
+                this.host.peerConnections.put(peerUsername, this);
+                String ciphertext = encryptMessageWithPublicKey("PEER_ANNOUNCEMENT@ACK");
                 sendToPeer(ciphertext);
             } else {
                 System.out.println("DEBUG: peer data does not match with server record, connection not accepted.");
@@ -98,7 +98,7 @@ public class PeerConnection {
     }
 
     private boolean verifyPeer(PeerData peerData) {
-        return Objects.equals(socket.getInetAddress().toString(), peerData.address);
+        return Objects.equals(socket.getInetAddress().toString().replace("/", ""), peerData.address);
     }
 
     private void initiateHandshake() {
@@ -115,15 +115,14 @@ public class PeerConnection {
             byte[] encryptedSymmetricKeyBytes = cipher.doFinal(symmetricKeyBytes);
 
             // Send the encrypted symmetric key to the peer
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            out.println(Base64.getEncoder().encodeToString(encryptedSymmetricKeyBytes));
+            sendToPeer("HANDSHAKE@ACK@" +  Base64.getEncoder().encodeToString(encryptedSymmetricKeyBytes));
 
             // Wait for the acknowledgment from the peer
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            String acknowledgment = in.readLine();
+            String acknowledgment = receiveFromPeer();
+            System.out.println("Received handshake ack");
 
             // Process the acknowledgment as needed
-            if (!Objects.equals(acknowledgment, "HANDSHAKE:ACK")) {
+            if (!Objects.equals(acknowledgment, "HANDSHAKE@ACK")) {
                 throw new InvalidMessageException(acknowledgment);
             }
         } catch (NoSuchAlgorithmException | IllegalBlockSizeException | NoSuchPaddingException | BadPaddingException | IOException | InvalidKeyException | InvalidMessageException e) {
@@ -137,8 +136,13 @@ public class PeerConnection {
         try {
             // Wait for the peer's encrypted symmetric key
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            String encryptedSymmetricKeyString = in.readLine();
+            String message = in.readLine();
+            String [] messageParts = message.split("@");
 
+            if (messageParts.length != 3 || !Objects.equals(messageParts[1], "ACK")) {
+                throw new InvalidMessageException(message);
+            }
+            String encryptedSymmetricKeyString = messageParts[2];
             byte[] encryptedSymmetricKeyBytes = Base64.getDecoder().decode(encryptedSymmetricKeyString);
 
             // Decrypt the symmetric key using the private key
@@ -151,10 +155,10 @@ public class PeerConnection {
 
             // Send acknowledgment to the peer
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            out.println("HANDSHAKE:ACK");
+            out.println("HANDSHAKE@ACK");
 
         } catch (IOException | NoSuchAlgorithmException | NoSuchPaddingException |
-                InvalidKeyException | BadPaddingException | IllegalBlockSizeException e) {
+                InvalidKeyException | BadPaddingException | IllegalBlockSizeException | InvalidMessageException e) {
             this.closeConnection();
             e.printStackTrace();
         }
@@ -198,6 +202,7 @@ public class PeerConnection {
     private void sendToPeer(String data) throws IOException {
         PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
         out.println(data);
+        System.out.println("Send message to peer " + data + " on " + socket.getInetAddress() + ":" + socket.getPort());
     }
 
     private String receiveFromPeer() throws IOException {
@@ -209,7 +214,7 @@ public class PeerConnection {
         try {
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             socket.setSoTimeout(TIMEOUT_SECONDS * 1000);
-
+            System.out.println("========= Chat started ========= ");
             while (true) {
                 try {
                     String encryptedMessage = in.readLine();
@@ -217,7 +222,7 @@ public class PeerConnection {
                     if (encryptedMessage != null) {
                         String decryptedMessage = this.decryptMessageWithSymmetricKey(encryptedMessage);
 
-                        System.out.println("Peer: " + decryptedMessage);
+                        System.out.println(this.peerData.username + ": " + decryptedMessage);
                     }
                 } catch (SocketTimeoutException e) {
                     // Ignore socket timeout, and continue listening
@@ -245,7 +250,7 @@ public class PeerConnection {
         }
     }
 
-    private void closeConnection() {
+    public void closeConnection() {
         try {
             socket.close();
         } catch (IOException e) {

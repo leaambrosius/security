@@ -6,12 +6,20 @@ import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Objects;
 
 import App.Storage.KeyRepository;
 import Utils.EnvironmentConfigProvider;
 import Utils.InvalidMessageException;
 import Utils.PublicKeyUtils;
+
+/**
+ * TODO clean up debug println
+ * TODO multiple peers
+ * TODO closing sockets
+ * TODO refactor, passing host to PeerConnection is meh, we should have separate classes
+ */
 
 public class Peer {
     private static final int TIMEOUT_SECONDS = 30;
@@ -23,9 +31,10 @@ public class Peer {
     private final String localPort = EnvironmentConfigProvider.getInstance().get("PEER_DEFAULT_PORT");
     private ServerSocket connectableSocket;
 
+    public HashMap<String, PeerConnection> peerConnections = new HashMap<>();
+
     public Peer(String username) {
         this.username = username;
-        this.announceToServer();
     }
 
     private String registerToTracker() {
@@ -55,6 +64,7 @@ public class Peer {
                 response = loginToTracker();
             }
 
+            System.out.println("Received message from server: " + response);
             String[] responseParts = response.split("@");
             if (responseParts.length == 2 && !Objects.equals(responseParts[1], "ACK")) {
                 throw new InvalidMessageException(response);
@@ -88,6 +98,7 @@ public class Peer {
 
     private void openConnectableSocket() throws IOException {
         connectableSocket = new ServerSocket(Integer.parseInt(this.localPort));
+        System.out.println("Opened connectable server on port " + this.localPort);
     }
 
     private void listenForConnections() {
@@ -105,12 +116,13 @@ public class Peer {
 
     private void handleIncomingConnection(Socket peerSocket) {
         new Thread(() -> {
-            String peerIP = peerSocket.getInetAddress().toString();
+            String peerIP = peerSocket.getInetAddress().toString().replace("/", "");;
             int peerPort = peerSocket.getPort();
-            System.out.println("DEBUG: incoming peer address: " + peerIP + ":" + peerPort);
+            System.out.println("Incoming peer ip: " + peerIP + " port: " + peerPort);
 
-            PeerConnection peerConn = new PeerConnection(this, keyPair, peerSocket);
-            peerConn.acceptChat();
+            PeerConnection newPeerConnection = new PeerConnection(this, keyPair, peerSocket);
+
+            newPeerConnection.acceptChat();
         }).start();
     }
 
@@ -120,7 +132,11 @@ public class Peer {
         boolean isConnectionAccepted = newPeerConnection.announceToPeer(this.username);
 
         if(isConnectionAccepted) {
+            System.out.println("Connection accepted by peer");
+            peerConnections.put(peerUsername, newPeerConnection);
             newPeerConnection.initiateChat();
+        } else {
+            newPeerConnection.closeConnection();
         }
     }
 
@@ -138,7 +154,7 @@ public class Peer {
             String peerIP = responseParts[1];
             int peerPort = Integer.parseInt(responseParts[2]);
             PublicKey peerPublicKey = PublicKeyUtils.stringToPublicKey(responseParts[3]);
-            System.out.println("DEBUG: peer data from server: " + peerUsername + "@" + peerIP + "@" + peerPort + "@" + peerPublicKey);
+            System.out.println("Received peer data from server: " + peerUsername + "@" + peerIP + "@" + peerPort + "@" + peerPublicKey);
             return new PeerData(peerUsername, peerIP, peerPort, peerPublicKey);
 
         } catch (Exception e) {
@@ -161,5 +177,16 @@ public class Peer {
 
         String signatureBase64 = Base64.getEncoder().encodeToString(signatureBytes);
         return signatureBase64;
+    }
+
+    public void sendMessage(String peerUsername, String message) {
+        System.out.println("Sending messages");
+        if (this.peerConnections.containsKey(peerUsername)) {
+            PeerConnection connection = this.peerConnections.get(peerUsername);
+            connection.sendMessage("MESSAGE@" + message);
+        } else {
+            //TODO handle that case, e.g. establish connection
+            System.out.println("No connection with that user yet");
+        }
     }
 }

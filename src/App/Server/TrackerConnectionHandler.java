@@ -1,16 +1,17 @@
 package App.Server;
 
+import Utils.PublicKeyUtils;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.math.BigInteger;
 import java.net.Socket;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 
 class TrackerConnectionHandler implements Runnable {
-    private Socket clientSocket;
+    private final Socket clientSocket;
 
     public TrackerConnectionHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -26,60 +27,67 @@ class TrackerConnectionHandler implements Runnable {
             BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             String message = reader.readLine();
             System.out.println("Received message from P2P client: " + message);
-            String instruction = message.split(" @ ")[0];
-            String response = "";
-            if(instruction.equals("regist")) {
-               response =  registUser(message,clientIP);
-            } else if (instruction.equals("login")) {
-                response = login(message,clientIP);
-            } else if (instruction.equals("getUserAddress")) {
-                response = getUserAddress(message);
+            String instruction = message.split("@")[0];
+            String response = "NACK";
+
+            switch (instruction) {
+                case "REGISTER" -> response = registerUser(message, clientIP);
+                case "LOGIN" -> response = login(message, clientIP);
+                case "PEER" -> response = getUserAddress(message);
+                default -> System.out.println("Unknown message received.");
             }
 
-            // Send an response to the client
+            // Send a response to the client
             PrintWriter writer = new PrintWriter(clientSocket.getOutputStream(), true);
             writer.println(response);
 
             writer.close();
             reader.close();
             clientSocket.close();
-        } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException | SignatureException |
-                 InvalidKeyException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static String registUser(String message,String ip) throws NoSuchAlgorithmException, InvalidKeySpecException {
-        String[] params = message.split(" @ ");
-        String username = params[1];
-        String port = params[2];
-        BigInteger pkModulus = new BigInteger(params[3]);
-        BigInteger pkExponent = new BigInteger(params[4]);
-        User user = new User(username,ip,port,pkModulus,pkExponent);
-        return user.regist(false);
+    private static String registerUser(String message,String ip)  {
+        try {
+            String[] params = message.split("@");
+            String username = params[1];
+            String port = params[2];
+            PublicKey publicKey = PublicKeyUtils.stringToPublicKey(params[3]);
+            User user = new User(username, ip, port, publicKey);
+            return user.register(false);
+        } catch (GeneralSecurityException e) {
+            e.printStackTrace();
+            return "NACK";
+        }
     }
 
-    private static String login(String message,String ip) throws NoSuchAlgorithmException, InvalidKeySpecException, SignatureException, InvalidKeyException {
-        String[] params = message.split(" @ ");
-        String username = params[1];
-        String port = params[2];
-        String messageToConfirm = params[3]; //it's the "ip"
-        String signedMessage = params[4];
-        User user = new User(username,ip,port);
-        if(!user.verifyMessage(signedMessage,messageToConfirm)){
-            return "Invalid signature; the message may have been tampered with.";
+    private static String login(String message, String ip) {
+        try {
+            String[] params = message.split("@");
+            String username = params[1];
+            String port = params[2];
+            String signedMessage = params[3];
+            User user = new User(username, ip, port);
+            if(!user.verifyMessage(signedMessage, username)){
+                return "Invalid signature; the message may have been tampered with.";
+            }
+            user.getUser();
+            user.register(true);
+            return "LOGIN@ACK";
+        } catch (NoSuchAlgorithmException | InvalidKeySpecException | SignatureException | InvalidKeyException e) {
+            e.printStackTrace();
+            return "NACK";
         }
-        user.getUser();
-        user.regist(true);
-        return "Signature is valid; the message is authentic.";
     }
 
     private static String getUserAddress(String message) {
-        String username = message.split(" @ ")[1];
+        String username = message.split("@")[1];
         User user = new User(username);
         if(!user.getUser()) {
             return "No user found!";
         }
-        return user.getIp() + " @ "+ user.getPort() + " @ "+ user.getPublicKeyModulus() + " @ " + user.getPublicKeyExponent();
+        return user.getIp() + "@" + user.getPort() + "@" + PublicKeyUtils.publicKeyToString(user.getPublicKey());
     }
 }

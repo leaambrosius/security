@@ -1,4 +1,4 @@
-package App.Start;
+package App.Client;
 
 import java.io.*;
 import java.math.BigInteger;
@@ -8,6 +8,8 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Base64;
+
+// TODO: remove, all functionalities moved to Peer
 
 public class Client {
 

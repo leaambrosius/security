@@ -2,16 +2,19 @@ package App.UI;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainScreenUI {
     private JFrame frame;
+    private JPanel cardPanel;
+    private CardLayout cardLayout;
     private JList<String> conversationsList;
     private JButton startConversationButton;
     private List<ConversationViewUI> activeConversations;
+
 
     public MainScreenUI() {
         initialize();
@@ -23,35 +26,92 @@ public class MainScreenUI {
         frame = new JFrame("Secure Chat");
         frame.setBounds(100, 100, 400, 300);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.getContentPane().setLayout(new BorderLayout());
 
-        conversationsList = new JList<>(new String[]{"User 1", "User 2", "Group 1", "Group 2"});
-        frame.getContentPane().add(new JScrollPane(conversationsList), BorderLayout.CENTER);
+        cardLayout = new CardLayout();
+        cardPanel = new JPanel(cardLayout);
+        JPanel mainPanel = new JPanel();
 
-        startConversationButton = new JButton("Start New Conversation");
+        mainPanel.setLayout(new BorderLayout());
+
+        conversationsList = new JList<>(new String[]{"Add User", "Username 1", "Username 2", "Username 3", "Username 4"});
+        mainPanel.add(new JScrollPane(conversationsList), BorderLayout.CENTER);
+
+        startConversationButton = new JButton("Start Conversation");
 
         actionlistener();
 
-        frame.getContentPane().add(startConversationButton, BorderLayout.SOUTH);
+        mainPanel.add(startConversationButton, BorderLayout.SOUTH);
+
+
+        cardPanel.add(mainPanel, "mainPanel");
+        frame.getContentPane().add(cardPanel);
     }
 
-    public void actionlistener(){
-        startConversationButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                String selectedRecipient = conversationsList.getSelectedValue();
-                if (selectedRecipient != null) {
-                    ConversationViewUI conversationView = new ConversationViewUI(selectedRecipient);
-                    activeConversations.add(conversationView);
-                    conversationView.setVisible(true);
-                    frame.dispose();;
-                }
+    public void actionlistener() {
+        startConversationButton.addActionListener(e -> {
+            String selectedRecipient = conversationsList.getSelectedValue();
+            if (selectedRecipient == null || selectedRecipient.equals("Add User")) {
+                showNewUserPanel();
+            } else {
+                openConversationView(selectedRecipient);
             }
         });
+    }
+
+    private void openConversationView(String user) {
+        ConversationViewUI conversationView = new ConversationViewUI(user);
+        activeConversations.add(conversationView);
+        conversationView.setVisible(true);
+        frame.dispose();
+
+    }
+
+    private void showNewUserPanel() {
+        JPanel newPanel = new JPanel();
+        JTextField textField = new JTextField(20);
+        JButton submitButton = new JButton("Submit");
+
+        submitButton.addActionListener(e -> newUser(textField));
+
+        newPanel.add(new JLabel("Enter User Name: "));
+        newPanel.add(textField);
+        newPanel.add(submitButton);
+
+        textField.addKeyListener(new KeyListener() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+            }
+
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    newUser(textField);
+                }
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+            }
+        });
+
+        cardPanel.add(newPanel, "newPanel");
+        cardLayout.show(cardPanel, "newPanel");
+    }
+
+
+    public void newUser(JTextField textField){
+        String inputText = textField.getText();
+        checkNewUser(inputText);
+        openConversationView(inputText);
+    }
+    private static void checkNewUser(String username) {
+        // TODO check if user exits otherwise set error message
     }
 
     public void setVisible(boolean visible) {
         frame.setVisible(visible);
     }
+
 
     public static void main(String[] args) {
         MainScreenUI mainScreen = new MainScreenUI();

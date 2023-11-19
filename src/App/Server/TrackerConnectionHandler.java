@@ -1,6 +1,11 @@
 package App.Server;
 
+import App.Client.PeerConnection;
+import App.Messages.Message;
+import App.Messages.MessageHandler;
+import App.Messages.MessageType;
 import Utils.PublicKeyUtils;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -9,32 +14,34 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
+import java.util.Arrays;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-class TrackerConnectionHandler implements Runnable {
-    private final Socket clientSocket;
-
-    public TrackerConnectionHandler(Socket clientSocket) {
-        this.clientSocket = clientSocket;
-    }
+record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
+    static java.util.logging.Logger logger = Logger.getLogger(TrackerConnectionHandler.class.getName());
+    private static final MessageHandler messageHandler = new MessageHandler();
 
     @Override
     public void run() {
         try {
             String clientIP = clientSocket.getInetAddress().getHostAddress();
-            System.out.println("Connected to P2P client with IP: " + clientIP);
+            logger.log(Level.INFO, "Connected to P2P client with IP: " + clientIP);
 
             // Handle incoming data from the client
             BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             String message = reader.readLine();
-            System.out.println("Received message from P2P client: " + message);
-            String instruction = message.split("@")[0];
-            String response = "NACK";
+
+            logger.log(Level.INFO,"Received message from P2P client: " + message);
+
+            String instruction = messageHandler.decodeMessage(message).getParts()[0];
+            String response = null;
 
             switch (instruction) {
                 case "REGISTER" -> response = registerUser(message, clientIP);
                 case "LOGIN" -> response = login(message, clientIP);
                 case "PEER" -> response = getUserAddress(message);
-                default -> System.out.println("Unknown message received.");
+                default -> logger.log(Level.WARNING,"Unknown message received: " + message);
             }
 
             // Send a response to the client
@@ -49,45 +56,66 @@ class TrackerConnectionHandler implements Runnable {
         }
     }
 
-    private static String registerUser(String message,String ip)  {
+    // REGISTER/USERNAME/PORT/PUBLIC_KEY -> REGISTER/ACK | REGISTER/NACK
+    private static String registerUser(String message, String ip) {
         try {
-            String[] params = message.split("@");
+            Message registerMessage = messageHandler.decodeMessage(message);
+            String[] params = registerMessage.getParts();
             String username = params[1];
             String port = params[2];
             PublicKey publicKey = PublicKeyUtils.stringToPublicKey(params[3]);
+
             User user = new User(username, ip, port, publicKey);
-            return user.register(false);
+            if (user.register(false)) {
+                logger.log(Level.INFO,"User registered successfully");
+                return messageHandler.generateAck(MessageType.REGISTER);
+            }
+            return messageHandler.generateAck(MessageType.REGISTER);
         } catch (GeneralSecurityException e) {
             e.printStackTrace();
-            return "NACK";
+            return messageHandler.generateNack(MessageType.REGISTER);
         }
     }
 
+    // LOGIN/USERNAME/PORT/SECRET -> LOGIN/ACK | LOGIN/NACK
     private static String login(String message, String ip) {
         try {
-            String[] params = message.split("@");
+            Message loginMessage = messageHandler.decodeMessage(message);
+            String[] params = loginMessage.getParts();
             String username = params[1];
             String port = params[2];
             String signedMessage = params[3];
+
             User user = new User(username, ip, port);
-            if(!user.verifyMessage(signedMessage, username)){
-                return "Invalid signature; the message may have been tampered with.";
+
+            if (!user.verifyMessage(signedMessage, username)) {
+                logger.log(Level.WARNING,"Login contains invalid signature: the message may have been tampered with");
+                return messageHandler.generateNack(MessageType.LOGIN);
             }
+
             user.getUser();
-            user.register(true);
-            return "LOGIN@ACK";
+
+            if (user.register(true)) {
+                logger.log(Level.INFO,"User logged in successfully");
+            }
+            return messageHandler.generateAck(MessageType.LOGIN);
         } catch (NoSuchAlgorithmException | InvalidKeySpecException | SignatureException | InvalidKeyException e) {
             e.printStackTrace();
-            return "NACK";
+            return messageHandler.generateNack(MessageType.LOGIN);
         }
     }
 
+    // PEER/USERNAME -> PEER/IP/PORT/PUBLIC_KEY | PEER/NACK
     private static String getUserAddress(String message) {
-        String username = message.split("@")[1];
+        Message peerMessage = messageHandler.decodeMessage(message);
+        String username = peerMessage.getParts()[1];
+
         User user = new User(username);
-        if(!user.getUser()) {
-            return "PEER@NACK@USER_NOT_FOUND";
+        if (!user.getUser()) {
+            logger.log(Level.WARNING,"Peer message: user not found");
+            return messageHandler.generateNack(MessageType.PEER);
         }
-        return "PEER" + "@" + user.getIp() + "@" + user.getPort() + "@" + PublicKeyUtils.publicKeyToString(user.getPublicKey());
+        Message response = new Message(MessageType.PEER, new String[] { user.getIp(), user.getPort(), PublicKeyUtils.publicKeyToString(user.getPublicKey())});
+        return messageHandler.encodeMessage(response);
     }
 }

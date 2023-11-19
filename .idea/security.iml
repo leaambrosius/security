@@ -16,7 +16,9 @@
         <SOURCES />
       </library>
     </orderEntry>
-    <orderEntry type="library" name="bcprov-jdk18on-176" level="project" />
     <orderEntry type="library" name="io.github.cdimascio.dotenv.java" level="project" />
+    <orderEntry type="library" name="apache-log4j-2.21" level="project" />
+    <orderEntry type="library" name="apache.logging.log4j.1.2.api" level="project" />
+    <orderEntry type="library" name="apache.logging.log4j.jul" level="project" />
   </component>
 </module>

@@ -1,6 +1,7 @@
 package App.Server;
 
 import Utils.PublicKeyUtils;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.*;
 import java.security.KeyFactory;
@@ -9,9 +10,12 @@ import java.security.PublicKey;
 import java.security.spec.*;
 import java.util.Base64;
 import java.security.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**Server Side user class**/
 public class User {
+    static java.util.logging.Logger logger = Logger.getLogger(User.class.getName());
     private final String username;
     private String ip;
     private String port;
@@ -24,19 +28,19 @@ public class User {
         this.publicKey = publicKey;
     }
 
-    public User(String username, String ip, String port) throws NoSuchAlgorithmException, InvalidKeySpecException {
+    public User(String username, String ip, String port) {
         this.username = username;
         this.ip = ip;
         this.port = port;
-        getPublicKeyFromFile(username);
+        readPublicKeyFromFile(username);
     }
 
     public User(String username){
         this.username = username;
     }
 
-    /**With the username tries to get the user file and save its public key in the instance**/
-    private void getPublicKeyFromFile(String username) {
+    // Look for user file and try to get their saved public key
+    private void readPublicKeyFromFile(String username) {
         String fileName = username + ".txt";
         File file = new File(fileName);
 
@@ -56,32 +60,32 @@ public class User {
         }
     }
 
-    public String register(Boolean rewrite) {
-        String fileName = username + ".txt"; // Specify the file name
+    public boolean register(Boolean rewrite) {
+        String fileName = username + ".txt";
         String content = username + "@" + ip + "@" + port + "@" + PublicKeyUtils.publicKeyToString(publicKey);
 
         try {
             File file = new File(fileName);
 
             if (file.exists() && !rewrite) {
-                return "User already registered";
+                logger.log(Level.WARNING, "Cannot register: user already registered");
+                return false;
             } else {
                 file.delete();
             }
             FileWriter fileWriter = new FileWriter(fileName);
             fileWriter.write(content);
-
             fileWriter.close();
-            if(rewrite) {
-                System.out.println("File rewritten successfully.");
-                return "File rewritten successfully.";
 
+            if (rewrite) {
+                logger.log(Level.INFO, "User registered: file rewritten successfully");
+                return true;
             }
-            System.out.println("File created and content written successfully.");
+            logger.log(Level.INFO, "User registered: file created and content written successfully");
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return "REGISTER@ACK";
+        return true;
     }
 
     public Boolean verifyMessage(String signatureBase64, String receivedMessage) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, SignatureException {
@@ -93,13 +97,9 @@ public class User {
         PublicKey publicKey = keyFactory.generatePublic(keySpec);
         signature.initVerify(publicKey);
 
-        byte[] receivedSignatureBytes = Base64.getDecoder().decode(signatureBase64);
+        byte[] receivedSignatureBytes = signatureBase64.getBytes(); //Base64.getDecoder().decode(signatureBase64);
         signature.update(receivedMessage.getBytes());
         return signature.verify(receivedSignatureBytes);
-    }
-
-    public String getUsername() {
-        return username;
     }
 
     public String getIp() {
@@ -115,7 +115,7 @@ public class User {
     }
 
     public Boolean getUser() {
-        String fileName = username + ".txt"; // Specify the file name
+        String fileName = username + ".txt";
         File file = new File(fileName);
 
         if (!file.exists()) {

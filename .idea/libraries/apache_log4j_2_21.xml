@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="apache-log4j-2.21">
+    <CLASSES>
+      <root url="file://$USER_HOME$/Downloads/apache-log4j-2.21.1-bin" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+    <jarDirectory url="file://$USER_HOME$/Downloads/apache-log4j-2.21.1-bin" recursive="false" />
+  </library>
+</component>

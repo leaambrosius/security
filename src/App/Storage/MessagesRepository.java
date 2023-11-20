@@ -16,9 +16,13 @@ public class MessagesRepository {
     }
 
     public ArrayList<Message> getChatHistory(String peer) {
-        // TODO
-        return null;
+        if (chatRooms.containsKey(peer)) {
+            return chatRooms.get(peer);
+        } else {
+            return new ArrayList<>();
+        }
     }
+
 
     public void saveAndEncryptRepository() {
         // TODO

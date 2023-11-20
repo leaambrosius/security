@@ -8,14 +8,12 @@ import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import Utils.EnvironmentConfigProvider;
-
 
 public class Tracker {
     static java.util.logging.Logger logger = Logger.getLogger(Tracker.class.getName());
 
     public static void main(String[] args) throws IOException {
-        int serverPort = Integer.parseInt(EnvironmentConfigProvider.getServerPort());
+        int serverPort = 12345;
 
         ServerSocket serverSocket = new ServerSocket(serverPort);
         logger.log(Level.INFO, "P2P Server is listening on port " + serverPort);

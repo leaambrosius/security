@@ -4,7 +4,6 @@ import App.Messages.Message;
 import App.Messages.MessageHandler;
 import App.Messages.MessageType;
 import App.Storage.KeyRepository;
-import Utils.EnvironmentConfigProvider;
 import Utils.InvalidMessageException;
 import Utils.PublicKeyUtils;
 
@@ -17,7 +16,6 @@ import java.net.Socket;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.logging.Level;
@@ -36,15 +34,18 @@ public class Peer {
 
     public String username;
     private KeyPair keyPair;
-    private final String serverIP = EnvironmentConfigProvider.getServerIP();
-    private final String serverPort = EnvironmentConfigProvider.getServerPort();
-    private final String localPort = EnvironmentConfigProvider.getPeerDefaultPort();
+    private String serverIP;
+    private String serverPort;
+    private String localPort;
     private ServerSocket connectableSocket;
 
     public HashMap<String, PeerConnection> peerConnections = new HashMap<>();
 
-    public Peer(String username) {
+    public Peer(String username, String serverIP, String serverPort, String localPort) {
         this.username = username;
+        this.serverIP = serverIP;
+        this.serverPort = serverPort;
+        this.localPort = localPort;
     }
 
     private String registerToTracker() {
@@ -93,6 +94,7 @@ public class Peer {
 
     private String sendToServer(String data) {
         try {
+            System.out.println(serverPort);
             Socket socket = new Socket(serverIP, Integer.parseInt(serverPort));
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));

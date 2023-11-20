@@ -67,7 +67,8 @@ public class PeerConnection {
                                                                 new String[] { username }));
             String ciphertext = encryptMessageWithPeerPublicKey(announcement);
             sendToPeer(ciphertext);
-            String response = decryptMessageWithPrivateKey(receiveFromPeer());
+            String encryptedResponse = receiveFromPeer();
+            String response = decryptMessageWithPrivateKey(encryptedResponse);
             Message responseMessage = messageHandler.decodeMessage(response);
             if (!(responseMessage.getType() == MessageType.PEER_ANNOUNCEMENT) || !responseMessage.isAck()) {
                 throw new InvalidMessageException(response);
@@ -99,6 +100,7 @@ public class PeerConnection {
                 this.host.peerConnections.put(peerUsername, this);
                 String ciphertext = encryptMessageWithPeerPublicKey(messageHandler.generateAck(MessageType.PEER_ANNOUNCEMENT));
                 sendToPeer(ciphertext);
+                logger.log(Level.INFO, "User announcement ack");
             } else {
                 logger.log(Level.WARNING, "Peer data does not match with server record, connection not accepted");
             }
@@ -114,7 +116,7 @@ public class PeerConnection {
             KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
             this.symmetricKey = keyGenerator.generateKey();
 
-            String symmetricKeyString = this.symmetricKey.toString();
+            String symmetricKeyString = Base64.getEncoder().encodeToString(this.symmetricKey.getEncoded());
             logger.log(Level.INFO, "Setup symmetric key " + Arrays.toString(this.symmetricKey.getEncoded()));
 
             // Send the encrypted symmetric key to the peer
@@ -147,7 +149,6 @@ public class PeerConnection {
             Message message = messageHandler.decodeMessage(decryptedMessage);
 
             if (!message.verifyLength(3) || !message.isAck()) {
-                System.out.println(message.verifyLength(3) + " " + message.isAck());
                 throw new InvalidMessageException(decryptedMessage);
             }
 

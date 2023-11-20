@@ -94,7 +94,6 @@ public class Peer {
 
     private String sendToServer(String data) {
         try {
-            System.out.println(serverPort);
             Socket socket = new Socket(serverIP, Integer.parseInt(serverPort));
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));

@@ -24,7 +24,6 @@ public class Message {
     }
 
     public boolean verifyLength(int expectedLength) {
-        System.out.println(this.parts.length + this.parts[0] + this.parts);
         return this.parts.length == expectedLength;
     }
 

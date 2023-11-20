@@ -143,11 +143,11 @@ public class PeerConnection {
             // Wait for the peer's encrypted symmetric key
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             String encryptedMessage = in.readLine();
+            System.out.println(encryptedMessage);
             String decryptedMessage = decryptMessageWithPrivateKey(encryptedMessage);
             Message message = messageHandler.decodeMessage(decryptedMessage);
 
             if (!message.verifyLength(3) || !message.isAck()) {
-                System.out.println(message.verifyLength(3) + " " + message.isAck());
                 throw new InvalidMessageException(decryptedMessage);
             }
 

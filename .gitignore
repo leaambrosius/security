@@ -28,7 +28,5 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-.env
-ala.txt
-private_key.pem
-public_key.pem
+*.txt
+*.pem

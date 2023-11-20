@@ -97,7 +97,7 @@ public class User {
         PublicKey publicKey = keyFactory.generatePublic(keySpec);
         signature.initVerify(publicKey);
 
-        byte[] receivedSignatureBytes = signatureBase64.getBytes(); //Base64.getDecoder().decode(signatureBase64);
+        byte[] receivedSignatureBytes = Base64.getDecoder().decode(signatureBase64); //signatureBase64.getBytes();
         signature.update(receivedMessage.getBytes());
         return signature.verify(receivedSignatureBytes);
     }

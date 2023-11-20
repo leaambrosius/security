@@ -65,7 +65,7 @@ public class Peer {
 
     public void announceToServer() {
         try {
-                boolean isFirstLogin = !KeyRepository.keysExist();
+                boolean isFirstLogin = !KeyRepository.keysExist(this.username);
                 this.keyPair = KeyRepository.getKeys(this.username);
                 String response;
 

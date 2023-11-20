@@ -47,9 +47,9 @@ public class KeyRepository {
         }
     }
 
-    public static boolean keysExist() {
-        File privateKeyFile = new File(PRIVATE_KEY_FILE);
-        File publicKeyFile = new File(PUBLIC_KEY_FILE);
+    public static boolean keysExist(String username) {
+        File privateKeyFile = new File(PRIVATE_KEY_FILE + username + ".pem");
+        File publicKeyFile = new File(PUBLIC_KEY_FILE + username + ".pem");
         return privateKeyFile.exists() && publicKeyFile.exists();
     }
 }

@@ -70,7 +70,7 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 logger.log(Level.INFO,"User registered successfully");
                 return messageHandler.generateAck(MessageType.REGISTER);
             }
-            return messageHandler.generateAck(MessageType.REGISTER);
+            return messageHandler.generateNack(MessageType.REGISTER);
         } catch (GeneralSecurityException e) {
             e.printStackTrace();
             return messageHandler.generateNack(MessageType.REGISTER);

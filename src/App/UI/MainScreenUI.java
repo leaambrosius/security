@@ -24,7 +24,8 @@ public class MainScreenUI {
 
     private void initialize() {
         frame = new JFrame("Secure Chat");
-        frame.setBounds(100, 100, 400, 300);
+        frame.setSize(400, 400);
+        centerFrameOnScreen(frame);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         cardLayout = new CardLayout();
@@ -45,6 +46,20 @@ public class MainScreenUI {
 
         cardPanel.add(mainPanel, "mainPanel");
         frame.getContentPane().add(cardPanel);
+    }
+
+    public static void centerFrameOnScreen(JFrame frame) {
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        int screenWidth = screenSize.width;
+        int screenHeight = screenSize.height;
+
+        int frameWidth = frame.getWidth();
+        int frameHeight = frame.getHeight();
+
+        int x = (screenWidth - frameWidth) / 2;
+        int y = (screenHeight - frameHeight) / 2;
+
+        frame.setLocation(x, y);
     }
 
     public void actionlistener() {

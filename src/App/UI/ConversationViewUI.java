@@ -12,16 +12,17 @@ public class ConversationViewUI {
     private JTextField messageInputField;
     private JButton sendButton;
     private JButton backButton;
-    private String recipientName;
 
     public ConversationViewUI(String recipientName) {
-        this.recipientName = recipientName;
         initialize(recipientName);
     }
 
     private void initialize(String recipientName) {
         frame = new JFrame("Conversation with " + recipientName);
-        frame.setBounds(100, 100, 400, 400);
+
+        frame.setSize(400, 400);
+        MainScreenUI.centerFrameOnScreen(frame);
+
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.getContentPane().setLayout(new BorderLayout());
 

@@ -5,6 +5,7 @@ import App.Messages.MessageHandler;
 import App.Messages.MessageType;
 import App.Storage.KeyRepository;
 import Utils.InvalidMessageException;
+import Utils.MessageListener;
 import Utils.PublicKeyUtils;
 
 import java.io.BufferedReader;
@@ -39,6 +40,8 @@ public class Peer {
     private String localPort;
     private ServerSocket connectableSocket;
 
+    private MessageListener listener;
+
     public HashMap<String, PeerConnection> peerConnections = new HashMap<>();
 
     public Peer(String username, String serverIP, String serverPort, String localPort) {
@@ -46,6 +49,10 @@ public class Peer {
         this.serverIP = serverIP;
         this.serverPort = serverPort;
         this.localPort = localPort;
+    }
+
+    public void setMessageListener(MessageListener listener) {
+        this.listener = listener;
     }
 
     private String registerToTracker() {
@@ -134,12 +141,14 @@ public class Peer {
         logger.log(Level.INFO, "Incoming peer: " + peerIP + ":" + peerPort);
 
         PeerConnection newPeerConnection = new PeerConnection(this, keyPair, peerSocket);
+        newPeerConnection.setMessageListener(listener);
         newPeerConnection.acceptChat();
     }
 
     public void connectToPeer(String peerUsername) {
         PeerData peerData = this.getPeerData(peerUsername);
         PeerConnection newPeerConnection = new PeerConnection(this, keyPair, peerData);
+        newPeerConnection.setMessageListener(listener);
         boolean isConnectionAccepted = newPeerConnection.announceToPeer(this.username);
 
         if(isConnectionAccepted) {

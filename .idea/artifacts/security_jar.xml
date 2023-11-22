@@ -1,0 +1,14 @@
+<component name="ArtifactManager">
+  <artifact name="security:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/security_jar</output-path>
+    <root id="root">
+      <element id="archive" name="security.jar">
+        <element id="module-output" name="security" />
+      </element>
+      <element id="library" level="project" name="apache-log4j-2.21" />
+      <element id="library" level="project" name="apache.logging.log4j.1.2.api" />
+      <element id="library" level="project" name="apache.logging.log4j.jul" />
+      <element id="library" level="project" name="io.github.cdimascio.dotenv.java" />
+    </root>
+  </artifact>
+</component>

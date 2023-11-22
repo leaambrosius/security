@@ -4,6 +4,7 @@ import App.Messages.Message;
 import App.Messages.MessageHandler;
 import App.Messages.MessageType;
 import Utils.InvalidMessageException;
+import Utils.MessageListener;
 
 import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
@@ -18,7 +19,7 @@ import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class PeerConnection {
+public class PeerConnection{
     static java.util.logging.Logger logger = Logger.getLogger(PeerConnection.class.getName());
     private static final MessageHandler messageHandler = new MessageHandler();
 
@@ -29,6 +30,7 @@ public class PeerConnection {
     private PeerData peerData;
     private Socket socket;
     private SecretKey symmetricKey;
+    private MessageListener listener;
 
     public PeerConnection(Peer host, KeyPair hostKeyPair, PeerData peerData) {
         this.host = host;
@@ -58,6 +60,10 @@ public class PeerConnection {
         this.waitForAnnouncement();
         this.acceptHandshake();
         this.startConversation();
+    }
+
+    public void setMessageListener(MessageListener listener) {
+        this.listener = listener;
     }
 
     public boolean announceToPeer(String username) {
@@ -268,6 +274,10 @@ public class PeerConnection {
                     if (encryptedMessage != null) {
                         String decryptedMessage = this.decryptMessageWithSymmetricKey(encryptedMessage);
                         logger.log(Level.INFO, this.peerData.username + "(" + this.socket.getInetAddress() + ":" + this.socket.getPort() +"): " + decryptedMessage + " received on (" + this.socket.getLocalAddress() + ":" + this.socket.getLocalPort() + ")");
+                        App.Storage.Message messageReceived = new App.Storage.Message(decryptedMessage,this.host.username,peerData.username);
+                        if(listener != null) {
+                            listener.messageReceived(messageReceived);
+                        }
                     }
                 } catch (SocketTimeoutException e) {
                     // Ignore socket timeout, and continue listening
@@ -307,4 +317,5 @@ public class PeerConnection {
     private boolean verifyPeer(PeerData peerData) {
         return Objects.equals(socket.getInetAddress().toString().replace("/", ""), peerData.address);
     }
+
 }

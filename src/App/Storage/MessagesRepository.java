@@ -10,7 +10,7 @@ public class MessagesRepository {
     public void addMessage(Message message) {
         String peer = message.peerUsername;
 
-        System.out.println("hist1:"+chatRooms);
+        System.out.println("hist1:"+chatRooms.get(peer));
         if (chatRooms.containsKey(peer)) {
             ArrayList<Message> chatRoomHistory = chatRooms.get(peer);
             chatRoomHistory.add(message);

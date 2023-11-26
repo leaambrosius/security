@@ -1,6 +1,7 @@
 package App.Storage;
+import java.io.Serializable;
 
-public class Message {
+public class Message implements Serializable {
     public final String plaintext;
     public final String peerUsername;
     public final String sender;

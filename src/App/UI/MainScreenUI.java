@@ -47,7 +47,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     }
 
     private void initialize() {
-        frame = new JFrame("Secure Chat");
+        frame = new JFrame("Secure Chat - "+ user.username);
         frame.setSize(400, 400);
         centerFrameOnScreen(frame);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);

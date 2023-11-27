@@ -36,7 +36,9 @@ public class ConversationViewUI {
         this.receiverUsername = recipientName;
         this.mainModel = mainModel;
         this.user = user;
-        new Thread(() -> user.connectToPeer(receiverUsername)).start();
+        if (!user.peerConnections.containsKey(receiverUsername)){
+            new Thread(() -> user.connectToPeer(receiverUsername)).start();
+        }
         initialize(recipientName);
     }
 

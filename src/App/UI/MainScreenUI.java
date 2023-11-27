@@ -47,7 +47,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     }
 
     private void initialize() {
-        frame = new JFrame("Secure Chat - "+ user.username);
+        frame = new JFrame("Secure Chat. Logged in as " + user.username);
         frame.setSize(400, 400);
         centerFrameOnScreen(frame);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -96,7 +96,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
             String selectedRecipient = conversationsList.getSelectedValue();
             if (selectedRecipient == null || selectedRecipient.equals("Add User")) {
                 showNewUserPanel();
-            } else {
+            }  else {
                 openConversationView(selectedRecipient);
             }
         });
@@ -191,7 +191,6 @@ public class MainScreenUI extends JFrame implements MessageListener {
         newModel.addElement(username);
         currentModel = newModel;
 
-        //If we dont need to open the conversation UI
         conversationsList.setModel(currentModel);
         SwingUtilities.invokeLater(() -> {
             conversationsList.setModel(currentModel);
@@ -235,7 +234,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     @Override
     public void messageReceived(Message message) {
         System.out.println("MSG -> " + message.plaintext);
-        if (openedChat != null && openedChat.getReceiverUsername().equalsIgnoreCase(message.peerUsername)) {
+        if (openedChat != null && openedChat.getReceiverUsername().equals(message.peerUsername)) {
             //send the msg to the open chat window to be displayed
             openedChat.showMessageReceived(message);
         } else {
@@ -249,23 +248,23 @@ public class MainScreenUI extends JFrame implements MessageListener {
         }
     }
 
-    private void storeUnreadMessages(Message message){
+    private void storeUnreadMessages(Message message) {
         String senderUsername = message.peerUsername;
         ArrayList<Message> messages;
-        if(!unreadMessages.containsKey(senderUsername)){
+        if (!unreadMessages.containsKey(senderUsername)) {
             messages = new ArrayList<>();
-        }else {
+        } else {
             messages = unreadMessages.get(senderUsername);
         }
         messages.add(message);
-        unreadMessages.put(senderUsername,messages);
+        unreadMessages.put(senderUsername, messages);
     }
 
-    public void deleteStoredUnreadMessages(String username){
+    public void deleteStoredUnreadMessages(String username) {
         unreadMessages.remove(username);
     }
 
-    public HashMap<String,ArrayList<Message>> getUnreadMessages(){
+    public HashMap<String, ArrayList<Message>> getUnreadMessages() {
         return unreadMessages;
     }
 
@@ -280,9 +279,9 @@ public class MainScreenUI extends JFrame implements MessageListener {
         public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
 
             Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-            if (unreadMessages.containsKey(value.toString())){
+            if (unreadMessages.containsKey(value.toString())) {
                 Boolean unread = unreadMessages.get(value.toString());
-                if(unread){
+                if (unread) {
                     c.setBackground(Color.RED);
                 }
             }

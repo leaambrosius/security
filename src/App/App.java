@@ -2,17 +2,29 @@ package App;
 
 import App.Client.Peer;
 import App.UI.MainScreenUI;
+import App.UI.UsernameSubmitUI;
+
+import javax.swing.*;
 
 public class App {
-    public static void main(String[] args) {
+    static String serverPort = "12345";
+    static String serverIP = "localhost";
+    static String localPort = "54321";
 
-        String serverPort = "12345";
-        String serverIP = "localhost";
-        String localPort = "54321";
-        Peer user = new Peer("A", serverIP, serverPort, localPort);
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(UsernameSubmitUI::new);
+
+        /*Peer user = new Peer("A", serverIP, serverPort, localPort);
+        Peer user = new Peer(username, serverIP, serverPort, localPort);
+        user.announceToServer();
+        MainScreenUI mainScreen = new MainScreenUI(user);*/
+
+    }
+
+    public static void runMainUI(String username) {
+        Peer user = new Peer(username, serverIP, serverPort, localPort);
         user.announceToServer();
         MainScreenUI mainScreen = new MainScreenUI(user);
-
     }
 
 }

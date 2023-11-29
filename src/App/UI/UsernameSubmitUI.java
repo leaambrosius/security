@@ -28,8 +28,6 @@ public class UsernameSubmitUI extends JFrame {
                     dispose();
                     App.App.runMainUI(userInput);
                 }
-                //use this to warn user when username doesnt exist in tracker DB
-                //JOptionPane.showMessageDialog(UsernameSubmitUI.this, "User Input: " + userInput);
             }
         });
 

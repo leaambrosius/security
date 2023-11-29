@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Main-Class: App.App
+Class-Path: log4j-1.2-api-2.19.0.jar log4j-api-2.19.0.jar log4j-jul-2.20
+ .0.jar log4j-api-2.20.0.jar dotenv-java-3.0.0.jar
+

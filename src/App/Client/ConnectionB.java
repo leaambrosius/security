@@ -19,7 +19,7 @@ public class ConnectionB {
         String localPort = "54322";
         Peer user = new Peer("B", serverIP, serverPort, localPort);
         user.announceToServer();
-        MessagesRepository messageRepository = new MessagesRepository();
+        /*MessagesRepository messageRepository = new MessagesRepository();
 
         ArrayList<String> nameList = new ArrayList<>();
         nameList.add("Alice");
@@ -54,8 +54,7 @@ public class ConnectionB {
 
         for (Message out : messageList) {
             System.out.println("after dec:"+ out.plaintext);
-        }
-
+        }*/
     }
 }
 

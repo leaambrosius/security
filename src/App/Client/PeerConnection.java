@@ -284,6 +284,8 @@ public class PeerConnection{
                 }
             }
         } catch (IOException e) {
+            //This will make the user close the connection when someone disconnects from the app
+            listener.connectionEnded(this);
             e.printStackTrace();
         }
     }

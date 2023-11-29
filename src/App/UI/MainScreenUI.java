@@ -1,6 +1,7 @@
 package App.UI;
 
 import App.Client.Peer;
+import App.Client.PeerConnection;
 import App.Storage.Message;
 import Utils.MessageListener;
 
@@ -13,8 +14,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
 
 public class MainScreenUI extends JFrame implements MessageListener {
@@ -28,6 +28,11 @@ public class MainScreenUI extends JFrame implements MessageListener {
     private Peer user;
     private DefaultListModel<String> currentModel = null;
     private ConversationViewUI openedChat = null;
+    private GroupChatViewUI openedGroup = null;
+
+    private HashSet<String> existingGroupChats = new HashSet<>();
+    private HashMap<String,ArrayList<String>> groupChatsMembers = new HashMap<>();
+
     private HashMap<String, ArrayList<Message>> unreadMessages = new HashMap<>();
 
     public MainScreenUI(Peer user, DefaultListModel<String> mainModel) {
@@ -59,7 +64,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
         mainPanel.setLayout(new BorderLayout());
 
         //TODO delete test users
-        conversationsList = new JList<>(new String[]{"Add User", "Username 1", "Username 2", "Username 3", "Username 4"});
+        conversationsList = new JList<>(new String[]{"Add User","Create group chat", "Username 1", "Username 2", "Username 3", "Username 4", "Username 41", "Username 42", "Username 43", "Username 44", "Username 45", "Username 46", "Username 47", "Username 48", "Username 49", "Username 411"});
         conversationsList.setCellRenderer(new UnreadMessagesCellRenderer());
         if (currentModel != null) {
             conversationsList.setModel(currentModel);
@@ -68,7 +73,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
 
         startConversationButton = new JButton("Start Conversation");
 
-        actionlistener();
+        actionListener();
 
         mainPanel.add(startConversationButton, BorderLayout.SOUTH);
 
@@ -91,15 +96,49 @@ public class MainScreenUI extends JFrame implements MessageListener {
         frame.setLocation(x, y);
     }
 
-    public void actionlistener() {
+    public void actionListener() {
         startConversationButton.addActionListener(e -> {
             String selectedRecipient = conversationsList.getSelectedValue();
             if (selectedRecipient == null || selectedRecipient.equals("Add User")) {
                 showNewUserPanel();
-            }  else {
+            } else if (existingGroupChats.contains(selectedRecipient)) {
+                openGroupChat(selectedRecipient);
+            } else if (selectedRecipient.equals("Create group chat")) {
+                SwingUtilities.invokeLater(() -> {
+                    new SelectGroupChatMembers(this,conversationsList);
+                });
+            } else {
                 openConversationView(selectedRecipient);
             }
         });
+    }
+
+    public void createGroupChat(String groupName, ArrayList<String> members) {
+        //TODO check if group name is not equal to any user name or any group
+
+        addNewContactOrGroup(groupName);
+        existingGroupChats.add(groupName);
+        members.add(user.username);
+        groupChatsMembers.put(groupName,members);
+        GroupChatViewUI creatingGroup = new GroupChatViewUI(members,user,groupName);
+    }
+
+    //Used when creating a new group chat
+    public void addGroupChat(String groupName, ArrayList<String> members) {
+        //TODO check if group name is not equal to any user name or any group
+
+        addNewContactOrGroup(groupName);
+        existingGroupChats.add(groupName);
+        groupChatsMembers.put(groupName,members);
+    }
+
+    //Used when received a group chat invitation
+    private void openGroupChat(String groupName) {
+        GroupChatViewUI groupChatViewUI = new GroupChatViewUI(this,groupChatsMembers.get(groupName),currentModel,this.user,groupName);
+        groupChatViewUI.setVisible(true);
+        openedGroup = groupChatViewUI;
+        UnreadMessagesCellRenderer.readMessage(groupName);
+        setVisible(false);
     }
 
     private void openConversationView(String user) {
@@ -108,7 +147,6 @@ public class MainScreenUI extends JFrame implements MessageListener {
         conversationView.setVisible(true);
         openedChat = conversationView;
         UnreadMessagesCellRenderer.readMessage(user);
-        //frame.dispose();
         setVisible(false);
     }
 
@@ -152,11 +190,11 @@ public class MainScreenUI extends JFrame implements MessageListener {
         String inputText = textField.getText();
         if (!checkNewUser(inputText) || !isNewUser(inputText)) {
             cardPanel.remove(cardPanel.getComponentCount() - 1);
-            return; //TODO give error trying to find user in server
+            JOptionPane.showMessageDialog(cardPanel, "User not found!");
+            return; //TODO handle error trying to find user in server
         }
         cardPanel.remove(cardPanel.getComponentCount() - 1);
-        addNewUser(inputText);
-        //openConversationView(inputText);
+        addNewContactOrGroup(inputText);
     }
 
     /**
@@ -171,9 +209,9 @@ public class MainScreenUI extends JFrame implements MessageListener {
         return true;
     }
 
-    private void addNewUser(String username) {
+    private void addNewContactOrGroup(String name) {
         if (currentModel != null) {
-            currentModel.addElement(username);
+            currentModel.addElement(name);
             conversationsList.setModel(currentModel);
             SwingUtilities.invokeLater(() -> {
                 conversationsList.setModel(currentModel);
@@ -188,7 +226,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
             newModel.addElement(conversationsList.getModel().getElementAt(i));
         }
 
-        newModel.addElement(username);
+        newModel.addElement(name);
         currentModel = newModel;
 
         conversationsList.setModel(currentModel);
@@ -234,12 +272,16 @@ public class MainScreenUI extends JFrame implements MessageListener {
     @Override
     public void messageReceived(Message message) {
         System.out.println("MSG -> " + message.plaintext);
+        if(message.plaintext.contains("GroupMessage")){
+            handleGroupMessages(message);
+            return;
+        }
         if (openedChat != null && openedChat.getReceiverUsername().equals(message.peerUsername)) {
             //send the msg to the open chat window to be displayed
             openedChat.showMessageReceived(message);
         } else {
             //changes the user tile to another color, because of unread message
-            storeUnreadMessages(message);
+            storeUnreadMessages(message,null);
             UnreadMessagesCellRenderer.unreadMessage(message.peerUsername);
             SwingUtilities.invokeLater(() -> {
                 mainPanel.revalidate();
@@ -248,8 +290,74 @@ public class MainScreenUI extends JFrame implements MessageListener {
         }
     }
 
-    private void storeUnreadMessages(Message message) {
+
+    /**
+     * Listens everytime a users disconnects and proceeds to remove the connection
+     **/
+    @Override
+    public void connectionEnded(PeerConnection peerConnection) {
+        List<PeerConnection> peerConnectionsValues = new ArrayList<>(user.peerConnections.values());
+        List<String> peerConnectionsUsers = new ArrayList<>(user.peerConnections.keySet());
+        String tropa = "";
+        for (int i = 0; i < peerConnectionsValues.size(); i++) {
+            if(peerConnectionsValues.get(i).equals(peerConnection)) {
+                user.peerConnections.remove(peerConnectionsUsers.get(i));
+                tropa = peerConnectionsUsers.get(i);
+            }
+        }
+    }
+
+    private void handleGroupMessages(Message message) {
+        if(message.plaintext.contains("GroupMessageInvitation")){
+            String[] messageParts = message.plaintext.split("@");
+            String groupName = messageParts[1];
+            String cleanedMembersList = messageParts[2].replaceAll("[\\[\\]\"]", "");
+            String[] membersArray = cleanedMembersList.split(",\\s*");
+            ArrayList<String> members = new ArrayList<>(Arrays.asList(membersArray));
+            checkInvitation(message.peerUsername,groupName,members);
+        }else {
+            String[] messageParts = message.plaintext.split("@");
+            String groupName = messageParts[1];
+            String messagePlaintext = messageParts[2];
+            Message messageCleaned = new Message(messagePlaintext,message.sender,message.peerUsername);
+            handleMessagesFromGroupChats(groupName,messageCleaned);
+        }
+    }
+
+    private void handleMessagesFromGroupChats(String groupName,Message message) {
+        if (openedGroup != null && openedGroup.getGroupName().equals(groupName)) {
+            openedGroup.showMessageReceived(message);
+        }else {
+            storeUnreadMessages(message,groupName);
+            UnreadMessagesCellRenderer.unreadMessage(groupName);
+            SwingUtilities.invokeLater(() -> {
+                mainPanel.revalidate();
+                mainPanel.repaint();
+            });
+        }
+    }
+
+    private void checkInvitation(String host,String groupName,ArrayList<String> members){
+        boolean hasHostInContacts = false;
+        for (int i = 0; i < conversationsList.getModel().getSize(); i++) {
+            String username = conversationsList.getModel().getElementAt(i);
+            if(username.equals(host)) {
+                hasHostInContacts = true;
+                break;
+            }
+        }
+        //Someone out of my contacts tried to add me in a new group
+        if(!hasHostInContacts) {
+            return;
+        }
+        addGroupChat(groupName,members);
+    }
+
+    private void storeUnreadMessages(Message message, String groupName) {
         String senderUsername = message.peerUsername;
+        if(groupName != null) {
+            senderUsername = groupName;
+        }
         ArrayList<Message> messages;
         if (!unreadMessages.containsKey(senderUsername)) {
             messages = new ArrayList<>();
@@ -259,6 +367,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
         messages.add(message);
         unreadMessages.put(senderUsername, messages);
     }
+
 
     public void deleteStoredUnreadMessages(String username) {
         unreadMessages.remove(username);

@@ -271,6 +271,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
      **/
     @Override
     public void messageReceived(Message message) {
+        // TODO Group massage and regular ones
         System.out.println("MSG -> " + message.plaintext);
         if(message.plaintext.contains("GroupMessage")){
             handleGroupMessages(message);

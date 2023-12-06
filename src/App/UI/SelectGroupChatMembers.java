@@ -7,6 +7,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class SelectGroupChatMembers extends JFrame {
     private JTextField groupName;
@@ -21,16 +22,17 @@ public class SelectGroupChatMembers extends JFrame {
     private DefaultListModel<String> listModel;
     private MainScreenUI mainScreenUI;
 
-    public SelectGroupChatMembers(MainScreenUI mainScreenUI, JList<String> usersList) {
+
+    public SelectGroupChatMembers(MainScreenUI mainScreenUI, ArrayList<String> usersList) {
         this.mainScreenUI = mainScreenUI;
         getUsers(usersList);
         initialize();
     }
 
-    private void getUsers(JList<String> conversationsList) {
+    private void getUsers(ArrayList<String> conversationsList) {
         //TODO ERROR -> group chat window -> submit with null input
-        for (int i = 0; i < conversationsList.getModel().getSize(); i++) {
-            String username = conversationsList.getModel().getElementAt(i);
+        for (int i = 0; i < conversationsList.size(); i++) {
+            String username = conversationsList.get(i);
             if(!username.equals("Add User") && ! username.equals("Create group chat")) {
                 users.add(username);
             }

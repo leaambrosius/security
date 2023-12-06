@@ -4,6 +4,7 @@ import App.App;
 import App.Client.Peer;
 import App.Client.PeerConnection;
 import App.Storage.Message;
+import App.Storage.MessagesRepository;
 import Utils.MessageListener;
 
 import javax.swing.*;
@@ -18,24 +19,22 @@ import java.util.ArrayList;
 public class ConversationViewUI {
     private JFrame frame;
     private JTextArea messageDisplayArea;
-
     private JTextField messageInputField;
     private JButton sendButton;
     private JButton backButton;
-
+    private MessagesRepository messageRepository;
     private String receiverUsername;
     private DefaultListModel<String> mainModel;
-
     private Peer user;
-
     private MainScreenUI mainUI;
 
 
-    public ConversationViewUI(MainScreenUI mainUI, String recipientName, DefaultListModel<String> mainModel, Peer user) {
+    public ConversationViewUI(MainScreenUI mainUI, String recipientName, DefaultListModel<String> mainModel, Peer user,MessagesRepository messageRepository) {
         this.mainUI = mainUI;
         this.receiverUsername = recipientName;
         this.mainModel = mainModel;
         this.user = user;
+        this.messageRepository = messageRepository;
         if (!user.peerConnections.containsKey(receiverUsername)){
             new Thread(() -> user.connectToPeer(receiverUsername)).start();
         }
@@ -55,6 +54,15 @@ public class ConversationViewUI {
 
         messageDisplayArea = new JTextArea();
         messageDisplayArea.setEditable(false);
+        try {
+            messageRepository.decryptChatRooms(recipientName);
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+        for (Message msg : messageRepository.getChatHistory(recipientName)) {
+            messageDisplayArea.append(msg.sender + ": "+msg.plaintext+"\n");
+        }
+
         frame.getContentPane().add(new JScrollPane(messageDisplayArea), BorderLayout.CENTER);
 
         messageInputField = new JTextField();
@@ -107,6 +115,13 @@ public class ConversationViewUI {
 
     }
 
+    public void close() {
+        mainUI.closeChat();
+        frame.dispose();
+        mainUI.placeFrameInCoordinates(frame.getX(),frame.getY());
+        mainUI.setVisible(true);
+    }
+
     public void appendUnreadMessages() {
         if(mainUI.getUnreadMessages().containsKey(receiverUsername)){
             ArrayList<Message> messages = mainUI.getUnreadMessages().get(receiverUsername);
@@ -129,6 +144,14 @@ public class ConversationViewUI {
         }).start();
         if (!message.isEmpty()) {
             messageDisplayArea.append("Me: " + message + "\n");
+            Message messageToStore = new Message(message,user.username,receiverUsername);
+            messageRepository.addMessage(messageToStore);
+            try {
+                messageRepository.saveAndEncryptRepository();
+            }catch (Exception e) {
+                e.printStackTrace();
+            }
+
             messageInputField.setText("");
         }
     }
@@ -136,6 +159,13 @@ public class ConversationViewUI {
     public void showMessageReceived(Message message) {
         if (message.peerUsername.equals(receiverUsername)) {
             messageDisplayArea.append(receiverUsername + ": " + message.plaintext + "\n");
+            try {
+                Message messageToStore = new Message(message.plaintext,receiverUsername,receiverUsername);
+                messageRepository.addMessage(messageToStore);
+                messageRepository.saveAndEncryptRepository();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             messageInputField.setText("");
         }
     }

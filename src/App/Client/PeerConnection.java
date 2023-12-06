@@ -32,7 +32,7 @@ public class PeerConnection{
     private SecretKey symmetricKey;
     private MessageListener listener;
 
-    public PeerConnection(Peer host, KeyPair hostKeyPair, PeerData peerData) {
+    public PeerConnection(Peer host, KeyPair hostKeyPair, PeerData peerData,MessageListener listener) {
         this.host = host;
         this.hostKeyPair = hostKeyPair;
         this.peerData = peerData;
@@ -41,6 +41,7 @@ public class PeerConnection{
             this.socket = new Socket(peerData.address, peerData.port);
         } catch (IOException e) {
             logger.log(Level.WARNING, "Cannot establish connection to peer");
+            listener.userOffline(peerData.username);
             e.printStackTrace();
         }
     }

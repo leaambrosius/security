@@ -149,12 +149,19 @@ public class GroupChatViewUI {
         sendButton.addActionListener(e -> sendMessage());
 
         backButton.addActionListener(e -> {
-            mainUI.closeChat();
+            mainUI.closeGroup();
             frame.dispose();
             mainUI.placeFrameInCoordinates(frame.getX(), frame.getY());
             mainUI.setVisible(true);
         });
 
+    }
+
+    public void close() {
+        mainUI.closeGroup();
+        frame.dispose();
+        mainUI.placeFrameInCoordinates(frame.getX(), frame.getY());
+        mainUI.setVisible(true);
     }
 
     public void appendUnreadMessages() {

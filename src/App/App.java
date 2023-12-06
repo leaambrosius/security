@@ -11,7 +11,7 @@ import java.util.Arrays;
 public class App {
     static String serverPort = "12345";
     static String serverIP = "localhost";
-    static String localPort = "54323";
+    static String localPort = "54321";
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(UsernameSubmitUI::new);
@@ -20,7 +20,9 @@ public class App {
 
     public static void runMainUI(String username) {
         Peer user = new Peer(username, serverIP, serverPort, localPort);
-        user.announceToServer();
+        if(!user.announceToServer()){
+            System.exit(1);
+        }
         MainScreenUI mainScreen = new MainScreenUI(user);
     }
 

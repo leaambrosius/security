@@ -70,7 +70,7 @@ public class Peer {
         return sendToServer(encodedMessage);
     }
 
-    public void announceToServer() {
+    public boolean announceToServer() {
         try {
                 boolean isFirstLogin = !KeyRepository.keysExist(this.username);
                 this.keyPair = KeyRepository.getKeys(this.username);
@@ -87,16 +87,18 @@ public class Peer {
 
             if (!message.verifyLength(2) || !message.isAck()) {
                 logger.log(Level.WARNING, "Do not received ack message: " + response);
-                return;
+                return false;
             }
 
             // Open connectable socket for incoming peers connections
             openConnectableSocket();
             listenForConnections();
+            return true;
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return true;
     }
 
     private String sendToServer(String data) {
@@ -147,7 +149,7 @@ public class Peer {
 
     public void connectToPeer(String peerUsername) {
         PeerData peerData = this.getPeerData(peerUsername);
-        PeerConnection newPeerConnection = new PeerConnection(this, keyPair, peerData);
+        PeerConnection newPeerConnection = new PeerConnection(this, keyPair, peerData,listener);
         newPeerConnection.setMessageListener(listener);
         boolean isConnectionAccepted = newPeerConnection.announceToPeer(this.username);
 

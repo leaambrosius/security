@@ -8,10 +8,9 @@ import Utils.InvalidMessageException;
 import Utils.MessageListener;
 import Utils.PublicKeyUtils;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.*;
@@ -82,7 +81,7 @@ public class Peer {
                     response = loginToTracker();
                 }
 
-            logger.log(Level.INFO, "Received announcement response from server: " + response);
+            logger.log(Level.INFO, "Received response from server: " + response);
             Message message = messageHandler.decodeMessage(response);
 
             if (!message.verifyLength(2) || !message.isAck()) {
@@ -101,7 +100,13 @@ public class Peer {
 
     private String sendToServer(String data) {
         try {
-            Socket socket = new Socket(serverIP, Integer.parseInt(serverPort));
+            SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+
+            // Create SSL socket and connect to the server
+            SSLSocket socket = (SSLSocket) sslSocketFactory.createSocket(serverIP, Integer.parseInt(serverPort));
+            socket.startHandshake();
+            System.out.println("Connected to server: " + serverIP);
+
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 

@@ -284,6 +284,9 @@ public class MainScreenUI extends JFrame implements MessageListener {
         }
         cardPanel.remove(cardPanel.getComponentCount() - 1);
         addNewContactOrGroup(inputText);
+        ArrayList<String> chatRooms = new ArrayList<>();
+        chatRooms.add(inputText);
+        messageRepository.addChatRooms(chatRooms);
         saveContactInStorage(inputText);
     }
 

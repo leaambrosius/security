@@ -11,7 +11,7 @@ import java.util.Arrays;
 public class App {
     static String serverPort = "12345";
     static String serverIP = "localhost";
-    static String localPort = "54321";
+    static String localPort = "54325";
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(UsernameSubmitUI::new);

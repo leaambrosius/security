@@ -275,7 +275,7 @@ public class PeerConnection{
                     if (encryptedMessage != null) {
                         String decryptedMessage = this.decryptMessageWithSymmetricKey(encryptedMessage);
                         logger.log(Level.INFO, this.peerData.username + "(" + this.socket.getInetAddress() + ":" + this.socket.getPort() +"): " + decryptedMessage + " received on (" + this.socket.getLocalAddress() + ":" + this.socket.getLocalPort() + ")");
-                        App.Storage.Message messageReceived = new App.Storage.Message(decryptedMessage,this.host.username,peerData.username);
+                        Message messageReceived = messageHandler.decodeMessage(decryptedMessage);
                         if(listener != null) {
                             listener.messageReceived(messageReceived);
                         }

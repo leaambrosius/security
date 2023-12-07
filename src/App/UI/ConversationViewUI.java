@@ -140,7 +140,7 @@ public class ConversationViewUI {
         String message = messageInputField.getText();
         PeerConnection receiver = user.peerConnections.get(receiverUsername);
         new Thread(() -> {
-            receiver.sendMessage(message);
+            receiver.sendMessage("MSG@" + message);
         }).start();
         if (!message.isEmpty()) {
             messageDisplayArea.append("Me: " + message + "\n");
@@ -156,11 +156,11 @@ public class ConversationViewUI {
         }
     }
 
-    public void showMessageReceived(Message message) {
-        if (message.peerUsername.equals(receiverUsername)) {
-            messageDisplayArea.append(receiverUsername + ": " + message.plaintext + "\n");
+    public void showMessageReceived(String message, String peer) {
+        if (peer.equals(receiverUsername)) {
+            messageDisplayArea.append(receiverUsername + ": " + message + "\n");
             try {
-                Message messageToStore = new Message(message.plaintext,receiverUsername,receiverUsername);
+                Message messageToStore = new Message(message,receiverUsername,receiverUsername);
                 messageRepository.addMessage(messageToStore);
                 messageRepository.saveAndEncryptRepository();
             } catch (Exception e) {

@@ -2,7 +2,8 @@ package App.UI;
 
 import App.Client.Peer;
 import App.Client.PeerConnection;
-import App.Storage.Message;
+import App.Messages.Message;
+import App.Messages.MessageType;
 import App.Storage.MessagesRepository;
 import Utils.MessageListener;
 
@@ -397,19 +398,21 @@ public class MainScreenUI extends JFrame implements MessageListener {
      * Listens everytime the user receives a msg
      **/
     @Override
-    public void messageReceived(Message message) {
-        // TODO Group massage and regular ones
-        System.out.println("MSG -> " + message.plaintext);
-        if (message.plaintext.contains("GroupMessage")) {
+    public void messageReceived(Message message, String peerUsername) {
+// TODO
+        System.out.println("MSG -> " + message.toString());
+        if (message.getType().equals(MessageType.GROUP_MESSAGE)) {
             handleGroupMessages(message);
             return;
         }
-        if (openedChat != null && openedChat.getReceiverUsername().equals(message.peerUsername)) {
+        String messageText = message.getParts()[1];
+
+        if (openedChat != null && openedChat.getReceiverUsername().equals(peerUsername)) {
             //send the msg to the open chat window to be displayed
-            openedChat.showMessageReceived(message);
+            openedChat.showMessageReceived(messageText, peerUsername);
         } else {
             try {
-                Message messageToStore = new Message(message.plaintext,message.peerUsername,message.peerUsername);
+                App.Storage.Message messageToStore = new App.Storage.Message(messageText,peerUsername,peerUsername);
                 messageRepository.addMessage(messageToStore);
                 messageRepository.saveAndEncryptRepository();
             } catch (Exception e) {
@@ -417,7 +420,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
             }
             //changes the user tile to another color, because of unread message
             storeUnreadMessages(message, null);
-            UnreadMessagesCellRenderer.unreadMessage(message.peerUsername);
+            UnreadMessagesCellRenderer.unreadMessage(peerUsername);
             SwingUtilities.invokeLater(() -> {
                 mainPanel.revalidate();
                 mainPanel.repaint();
@@ -460,7 +463,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
         }
     }
 
-    private void handleGroupMessages(Message message) {
+    private void handleGroupMessages(App.Storage.Message message) {
         if (message.plaintext.contains("GroupMessageInvitation")) {
             String[] messageParts = message.plaintext.split("@");
             String groupName = messageParts[1];
@@ -472,7 +475,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
             String[] messageParts = message.plaintext.split("@");
             String groupName = messageParts[1];
             String messagePlaintext = messageParts[2];
-            Message messageCleaned = new Message(messagePlaintext, message.sender, message.peerUsername);
+            App.Storage.Message messageCleaned = new App.Storage.Message(messagePlaintext, message.sender, message.peerUsername);
             handleMessagesFromGroupChats(groupName, messageCleaned);
         }
     }

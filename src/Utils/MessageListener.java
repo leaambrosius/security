@@ -1,7 +1,7 @@
 package Utils;
 
 import App.Client.PeerConnection;
-import App.Storage.Message;
+import App.Messages.Message;
 
 public interface MessageListener {
     void messageReceived(Message message);

@@ -63,7 +63,7 @@ public class GroupChatViewUI {
         //TODO this is probably dumb
 
         //messageInvitationIdentifier @ groupName @ members
-        String groupMessageInvitationIdentifier = "GROUP_INVITATION@"+groupName+"@"+members.toString();
+        String groupMessageInvitationIdentifier =  "GROUP_INVITATION@"+groupName+"@"+members.toString();
         for (int i = 0; i < members.size(); i++) {
             PeerConnection receiver = user.peerConnections.get(members.get(i));
             if(receiver != null) {

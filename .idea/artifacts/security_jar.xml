@@ -5,10 +5,6 @@
       <element id="archive" name="security.jar">
         <element id="module-output" name="security" />
       </element>
-      <element id="library" level="project" name="apache.logging.log4j.jul" />
-      <element id="library" level="project" name="apache.logging.log4j.1.2.api" />
-      <element id="library" level="project" name="io.github.cdimascio.dotenv.java" />
-      <element id="library" level="project" name="apache-log4j-2.21" />
     </root>
   </artifact>
 </component>

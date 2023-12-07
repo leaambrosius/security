@@ -5,7 +5,6 @@ import App.Messages.Message;
 import App.Messages.MessageHandler;
 import App.Messages.MessageType;
 import Utils.PublicKeyUtils;
-import org.apache.logging.log4j.LogManager;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -14,7 +13,6 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
-import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 

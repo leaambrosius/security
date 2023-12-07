@@ -7,6 +7,6 @@ public class ConnectionC {
         String localPort = "54323";
         Peer user = new Peer("C", serverIP, serverPort, localPort);
         user.announceToServer();
-        //user.connectToPeer("A");
+        user.connectToPeer("A");
     }
 }

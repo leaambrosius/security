@@ -8,8 +8,7 @@ import Utils.InvalidMessageException;
 import Utils.MessageListener;
 import Utils.PublicKeyUtils;
 
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.*;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -100,10 +99,31 @@ public class Peer {
 
     private String sendToServer(String data) {
         try {
-            SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+
+            TrustManager[] trustManagers = {new X509TrustManager() {
+                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                    return null;
+                }
+
+                public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) {
+                }
+
+                public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) {
+                }
+            }};
+
+            // Create SSLContext with the custom trust manager
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustManagers, new SecureRandom());
+
+            SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
 
             // Create SSL socket and connect to the server
             SSLSocket socket = (SSLSocket) sslSocketFactory.createSocket(serverIP, Integer.parseInt(serverPort));
+            String[] enabledProtocols = socket.getEnabledProtocols();
+            socket.setEnabledProtocols(enabledProtocols);
+            socket.setEnabledCipherSuites(socket.getSupportedCipherSuites());
+
             socket.startHandshake();
             System.out.println("Connected to server: " + serverIP);
 
@@ -115,7 +135,7 @@ public class Peer {
             socket.close();
             return response;
 
-        } catch (IOException e) {
+        } catch (IOException | NoSuchAlgorithmException | KeyManagementException e) {
             e.printStackTrace();
             return null;
         }

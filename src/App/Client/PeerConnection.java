@@ -277,7 +277,7 @@ public class PeerConnection{
                         logger.log(Level.INFO, this.peerData.username + "(" + this.socket.getInetAddress() + ":" + this.socket.getPort() +"): " + decryptedMessage + " received on (" + this.socket.getLocalAddress() + ":" + this.socket.getLocalPort() + ")");
                         Message messageReceived = messageHandler.decodeMessage(decryptedMessage);
                         if(listener != null) {
-                            listener.messageReceived(messageReceived);
+                            listener.messageReceived(messageReceived,this.peerData.username);
                         }
                     }
                 } catch (SocketTimeoutException e) {

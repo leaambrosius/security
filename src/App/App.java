@@ -5,8 +5,6 @@ import App.UI.MainScreenUI;
 import App.UI.UsernameSubmitUI;
 
 import javax.swing.*;
-import java.util.ArrayList;
-import java.util.Arrays;
 
 public class App {
     static String serverPort = "12345";

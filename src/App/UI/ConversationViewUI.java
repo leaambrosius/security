@@ -124,10 +124,15 @@ public class ConversationViewUI {
 
     public void appendUnreadMessages() {
         if(mainUI.getUnreadMessages().containsKey(receiverUsername)){
-            ArrayList<Message> messages = mainUI.getUnreadMessages().get(receiverUsername);
+            //TODO use this if local/remote storage is not working
+            //This is needed to show messages unread if we dont have any kind of storage implemented
+            /*ArrayList<Message> messages = mainUI.getUnreadMessages().get(receiverUsername);
             for (int i = 0; i < messages.size(); i++) {
+                String before = messageDisplayArea.getText();
+                String msgText = messages.get(i).plaintext;
                 messageDisplayArea.append(receiverUsername + ": " + messages.get(i).plaintext + "\n");
-            }
+                String after = messageDisplayArea.getText();
+            }*/
             mainUI.deleteStoredUnreadMessages(receiverUsername);
         }
     }

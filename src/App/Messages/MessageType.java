@@ -6,5 +6,8 @@ public enum MessageType {
     LOGIN,
     PEER,
     PEER_ANNOUNCEMENT,
-    HANDSHAKE
+    HANDSHAKE,
+    GROUP_MESSAGE,
+    GROUP_INVITATION,
+    MSG
 }

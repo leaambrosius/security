@@ -63,7 +63,7 @@ public class GroupChatViewUI {
         //TODO this is probably dumb
 
         //messageInvitationIdentifier @ groupName @ members
-        String groupMessageInvitationIdentifier = "GroupMessageInvitation@"+groupName+"@"+members.toString();
+        String groupMessageInvitationIdentifier =  "GROUP_INVITATION@"+groupName+"@"+members.toString();
         for (int i = 0; i < members.size(); i++) {
             PeerConnection receiver = user.peerConnections.get(members.get(i));
             if(receiver != null) {
@@ -180,7 +180,7 @@ public class GroupChatViewUI {
 
     public void sendMessage() {
         //TODO this is probably dumb
-        String groupMessageIdentifier = "GroupMessage@"+groupName+"@";
+        String groupMessageIdentifier = "GROUP_MESSAGE@"+groupName+"@";
         String message = messageInputField.getText();
         for (int i = 0; i < members.size(); i++) {
             PeerConnection receiver = user.peerConnections.get(members.get(i));

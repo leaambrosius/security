@@ -113,7 +113,7 @@ public class User {
         return publicKey;
     }
 
-    public Boolean getUser() {
+    public Boolean getUser(boolean useADdressFromFile) {
         String fileName = username + ".txt";
         File file = new File(fileName);
 
@@ -124,8 +124,10 @@ public class User {
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] params = line.split("@");
-                ip = params[1];
-                port = params[2];
+                if(useADdressFromFile) {
+                    ip = params[1];
+                    port = params[2];
+                }
                 publicKey = PublicKeyUtils.stringToPublicKey(params[3]);
             }
         } catch (IOException | GeneralSecurityException e) {

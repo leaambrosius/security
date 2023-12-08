@@ -124,10 +124,15 @@ public class ConversationViewUI {
 
     public void appendUnreadMessages() {
         if(mainUI.getUnreadMessages().containsKey(receiverUsername)){
-            ArrayList<Message> messages = mainUI.getUnreadMessages().get(receiverUsername);
+            //TODO use this if local/remote storage is not working
+            //This is needed to show messages unread if we dont have any kind of storage implemented
+            /*ArrayList<Message> messages = mainUI.getUnreadMessages().get(receiverUsername);
             for (int i = 0; i < messages.size(); i++) {
+                String before = messageDisplayArea.getText();
+                String msgText = messages.get(i).plaintext;
                 messageDisplayArea.append(receiverUsername + ": " + messages.get(i).plaintext + "\n");
-            }
+                String after = messageDisplayArea.getText();
+            }*/
             mainUI.deleteStoredUnreadMessages(receiverUsername);
         }
     }
@@ -140,7 +145,7 @@ public class ConversationViewUI {
         String message = messageInputField.getText();
         PeerConnection receiver = user.peerConnections.get(receiverUsername);
         new Thread(() -> {
-            receiver.sendMessage(message);
+            receiver.sendMessage("MSG@" + message);
         }).start();
         if (!message.isEmpty()) {
             messageDisplayArea.append("Me: " + message + "\n");
@@ -156,11 +161,11 @@ public class ConversationViewUI {
         }
     }
 
-    public void showMessageReceived(Message message) {
-        if (message.peerUsername.equals(receiverUsername)) {
-            messageDisplayArea.append(receiverUsername + ": " + message.plaintext + "\n");
+    public void showMessageReceived(String message, String peer) {
+        if (peer.equals(receiverUsername)) {
+            messageDisplayArea.append(receiverUsername + ": " + message + "\n");
             try {
-                Message messageToStore = new Message(message.plaintext,receiverUsername,receiverUsername);
+                Message messageToStore = new Message(message,receiverUsername,receiverUsername);
                 messageRepository.addMessage(messageToStore);
                 messageRepository.saveAndEncryptRepository();
             } catch (Exception e) {

@@ -91,7 +91,7 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 return messageHandler.generateNack(MessageType.LOGIN);
             }
 
-            user.getUser();
+            user.getUser(false);
 
             if (user.register(true)) {
                 logger.log(Level.INFO,"User logged in successfully");
@@ -109,7 +109,7 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
         String username = peerMessage.getParts()[1];
 
         User user = new User(username);
-        if (!user.getUser()) {
+        if (!user.getUser(true)) {
             logger.log(Level.WARNING,"Peer message: user not found");
             return messageHandler.generateNack(MessageType.PEER);
         }

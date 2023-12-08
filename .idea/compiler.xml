@@ -7,11 +7,10 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="CloudCrypto" />
-        <module name="security" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="security" target="1.5" />
+      <module name="security" target="16" />
     </bytecodeTargetLevel>
   </component>
 </project>

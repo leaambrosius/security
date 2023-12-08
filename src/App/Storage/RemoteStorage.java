@@ -8,7 +8,7 @@ import java.util.ArrayList;
 
 public class RemoteStorage {
     private static ArrayList<String> getChatIdsForUsername(String username) throws SQLException {
-        Connection connection = CloudConnectionPoolFactory.createConnectionPool().getConnection();
+        Connection connection = CloudConnectionPoolFactory.ds().getConnection();
         ArrayList<String> chatIds = new ArrayList<>();
         String query = "SELECT chat_id FROM chats WHERE username = ?";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
@@ -22,7 +22,7 @@ public class RemoteStorage {
     }
 
     private static ArrayList<String> getMessagesForChatId(String chatId) throws SQLException {
-        Connection connection = CloudConnectionPoolFactory.createConnectionPool().getConnection();
+        Connection connection = CloudConnectionPoolFactory.ds().getConnection();
 
         ArrayList<String> messages = new ArrayList<>();
         String query = "SELECT message FROM messages WHERE chat_id = ? ORDER BY timestamp";
@@ -37,7 +37,7 @@ public class RemoteStorage {
     }
 
     private static ArrayList<String> getMessagesForKeywordAndChatId(String keyword, String chatId) throws SQLException {
-        Connection connection = CloudConnectionPoolFactory.createConnectionPool().getConnection();
+        Connection connection = CloudConnectionPoolFactory.ds().getConnection();
 
         ArrayList<String> messages = new ArrayList<>();
         String query = "SELECT message FROM messages JOIN keywords ON messages.message_id = keywords.message_id " +
@@ -51,6 +51,43 @@ public class RemoteStorage {
             }
         }
         return messages;
+    }
+
+    public static void insertChat(String chatId, String username) throws SQLException {
+        Connection connection = CloudConnectionPoolFactory.ds().getConnection();
+
+        String query = "INSERT INTO chats (chat_id, username) VALUES (?, ?)";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, chatId);
+            statement.setString(2, username);
+            statement.executeUpdate();
+        }
+    }
+
+    public static void insertKeywordMessage(String keyword, String messageId) throws SQLException {
+        Connection connection = CloudConnectionPoolFactory.ds().getConnection();
+
+        String query = "INSERT INTO keywords (keyword, message_id) VALUES (?, ?)";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, keyword);
+            statement.setString(2, messageId);
+            statement.executeUpdate();
+        }
+    }
+
+    public static void insertMessages(String messageId, String timestamp, String sender, String chatId, String message, String signature) throws SQLException {
+        Connection connection = CloudConnectionPoolFactory.ds().getConnection();
+
+        String query = "INSERT INTO messages (message_id, timestamp, sender, chat_id, message, signature) VALUES (?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, messageId);
+            statement.setString(2, timestamp);
+            statement.setString(3, sender);
+            statement.setString(4, chatId);
+            statement.setString(5, message);
+            statement.setString(6, signature);
+            statement.executeUpdate();
+        }
     }
 }
 

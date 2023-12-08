@@ -1,22 +1,27 @@
 package App.UI;
 
-import App.App;
 import App.Client.Peer;
 import App.Client.PeerConnection;
+import App.Messages.ChatMessage;
 import App.Storage.Message;
 import App.Storage.MessagesRepository;
-import Utils.MessageListener;
+import App.Storage.StorageMessage;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.io.IOException;
-import java.net.Socket;
-import java.util.ArrayList;
+
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SignatureException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 public class ConversationViewUI {
+    private static final Logger logger = Logger.getLogger(ConversationViewUI.class.getName());
+
     private JFrame frame;
     private JTextArea messageDisplayArea;
     private JTextField messageInputField;
@@ -30,6 +35,7 @@ public class ConversationViewUI {
 
 
     public ConversationViewUI(MainScreenUI mainUI, String recipientName, DefaultListModel<String> mainModel, Peer user,MessagesRepository messageRepository) {
+
         this.mainUI = mainUI;
         this.receiverUsername = recipientName;
         this.mainModel = mainModel;
@@ -54,13 +60,10 @@ public class ConversationViewUI {
 
         messageDisplayArea = new JTextArea();
         messageDisplayArea.setEditable(false);
-        try {
-            messageRepository.decryptChatRooms(recipientName);
-        } catch (Exception e){
-            e.printStackTrace();
-        }
-        for (Message msg : messageRepository.getChatHistory(recipientName)) {
-            messageDisplayArea.append(msg.sender + ": "+msg.plaintext+"\n");
+
+        String chatId = messageRepository.peerToChat.get(recipientName).chatId;
+        for (StorageMessage msg : messageRepository.getChatHistory(chatId)) {
+            messageDisplayArea.append(msg.sender + ": " + msg.message+"\n");
         }
 
         frame.getContentPane().add(new JScrollPane(messageDisplayArea), BorderLayout.CENTER);
@@ -78,8 +81,6 @@ public class ConversationViewUI {
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
 
         frame.getContentPane().add(backButton, BorderLayout.NORTH);
-
-        appendUnreadMessages();
     }
 
     public void keyListener() {
@@ -123,18 +124,18 @@ public class ConversationViewUI {
     }
 
     public void appendUnreadMessages() {
-        if(mainUI.getUnreadMessages().containsKey(receiverUsername)){
-            //TODO use this if local/remote storage is not working
-            //This is needed to show messages unread if we dont have any kind of storage implemented
-            /*ArrayList<Message> messages = mainUI.getUnreadMessages().get(receiverUsername);
-            for (int i = 0; i < messages.size(); i++) {
-                String before = messageDisplayArea.getText();
-                String msgText = messages.get(i).plaintext;
-                messageDisplayArea.append(receiverUsername + ": " + messages.get(i).plaintext + "\n");
-                String after = messageDisplayArea.getText();
-            }*/
-            mainUI.deleteStoredUnreadMessages(receiverUsername);
-        }
+//        if(mainUI.getUnreadMessages().containsKey(receiverUsername)){
+//            //TODO use this if local/remote storage is not working
+//            //This is needed to show messages unread if we dont have any kind of storage implemented
+//            /*ArrayList<Message> messages = mainUI.getUnreadMessages().get(receiverUsername);
+//            for (int i = 0; i < messages.size(); i++) {
+//                String before = messageDisplayArea.getText();
+//                String msgText = messages.get(i).plaintext;
+//                messageDisplayArea.append(receiverUsername + ": " + messages.get(i).plaintext + "\n");
+//                String after = messageDisplayArea.getText();
+//            }*/
+//            mainUI.deleteStoredUnreadMessages(receiverUsername);
+//        }
     }
 
     public void setVisible(boolean visible) {
@@ -142,35 +143,32 @@ public class ConversationViewUI {
     }
 
     public void sendMessage() {
-        String message = messageInputField.getText();
+        String plaintext = messageInputField.getText();
         PeerConnection receiver = user.peerConnections.get(receiverUsername);
-        new Thread(() -> {
-            receiver.sendMessage("MSG@" + message);
-        }).start();
-        if (!message.isEmpty()) {
-            messageDisplayArea.append("Me: " + message + "\n");
-            Message messageToStore = new Message(message,user.username,receiverUsername);
-            messageRepository.addMessage(messageToStore);
-            try {
-                messageRepository.saveAndEncryptRepository();
-            }catch (Exception e) {
-                e.printStackTrace();
-            }
 
+        if (plaintext.isEmpty()) return;
+
+        try {
+            String signature = user.encryptionManager.signMessage(plaintext);
+            ChatMessage message = new ChatMessage(signature, plaintext);
+            new Thread(() -> receiver.sendMessage(message.encode())).start();
+
+            messageDisplayArea.append("Me: " + plaintext + "\n");
             messageInputField.setText("");
+
+            String chatId = messageRepository.peerToChat.get(receiverUsername).chatId;
+            StorageMessage messageToStore = new StorageMessage(message, user.username, chatId);
+            messageRepository.addMessage(messageToStore, chatId);
+
+        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+            logger.log(Level.WARNING, "Message not send");
+            return;
         }
     }
 
     public void showMessageReceived(String message, String peer) {
         if (peer.equals(receiverUsername)) {
             messageDisplayArea.append(receiverUsername + ": " + message + "\n");
-            try {
-                Message messageToStore = new Message(message,receiverUsername,receiverUsername);
-                messageRepository.addMessage(messageToStore);
-                messageRepository.saveAndEncryptRepository();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
             messageInputField.setText("");
         }
     }

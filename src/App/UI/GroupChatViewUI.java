@@ -1,21 +1,28 @@
 package App.UI;
 
-import App.App;
 import App.Client.Peer;
 import App.Client.PeerConnection;
-import App.Storage.Message;
-import Utils.MessageListener;
+import App.Messages.GroupInvitationMessage;
+import App.Messages.GroupMessage;
+import App.Storage.MessagesRepository;
+import App.Storage.StorageMessage;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.io.IOException;
-import java.net.Socket;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SignatureException;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 public class GroupChatViewUI {
+    private static final Logger logger = Logger.getLogger(GroupChatViewUI.class.getName());
+
+
     private JFrame frame;
     private JTextArea messageDisplayArea;
 
@@ -24,6 +31,7 @@ public class GroupChatViewUI {
     private JButton backButton;
 
     private ArrayList<String> members;
+    private MessagesRepository messageRepository;
     private DefaultListModel<String> mainModel;
 
     private String groupName;
@@ -33,22 +41,25 @@ public class GroupChatViewUI {
     private MainScreenUI mainUI;
 
 
-    public GroupChatViewUI(MainScreenUI mainUI, ArrayList<String> members, DefaultListModel<String> mainModel, Peer user,String groupName) {
+    public GroupChatViewUI(MainScreenUI mainUI, ArrayList<String> members, DefaultListModel<String> mainModel, Peer user, String groupName, MessagesRepository messageRepository) {
         this.mainUI = mainUI;
         this.members = members;
         this.mainModel = mainModel;
         this.user = user;
         this.groupName = groupName;
+        this.messageRepository = messageRepository;
         openSocketsWithGroupMembers();
         initialize();
     }
 
-    public GroupChatViewUI(ArrayList<String> members, Peer user,String groupName)
+    public GroupChatViewUI(ArrayList<String> members, Peer user, String groupName, MessagesRepository messageRepository)
 
     {
         this.members = members;
         this.user = user;
         this.groupName = groupName;
+        this.messageRepository = messageRepository;
+
         openSocketsWithGroupMembers();
         //TODO find a better way to wait for handshake and then invite members
         try {
@@ -60,23 +71,20 @@ public class GroupChatViewUI {
     }
 
     public void inviteMembers() {
-        //TODO this is probably dumb
-
-        //messageInvitationIdentifier @ groupName @ members
-        String groupMessageInvitationIdentifier =  "GROUP_INVITATION@"+groupName+"@"+members.toString();
-        for (int i = 0; i < members.size(); i++) {
-            PeerConnection receiver = user.peerConnections.get(members.get(i));
-            if(receiver != null) {
+        GroupInvitationMessage groupInvitationMessage = new GroupInvitationMessage(groupName, members.toString());
+        for (String member : members) {
+            PeerConnection receiver = user.peerConnections.get(member);
+            if (receiver != null) {
+                // TODO do we need new thread for each?
                 new Thread(() -> {
-                    receiver.sendMessage(groupMessageInvitationIdentifier);
+                    receiver.sendMessage(groupInvitationMessage.encode());
                 }).start();
             }
         }
     }
 
     private void openSocketsWithGroupMembers() {
-        for (int i = 0; i < members.size(); i++) {
-            String receiverUsername = members.get(i);
+        for (String receiverUsername : members) {
             if (!user.peerConnections.containsKey(receiverUsername) && !user.username.equals(receiverUsername)) {
                 new Thread(() -> user.connectToPeer(receiverUsername)).start();
             }
@@ -111,43 +119,37 @@ public class GroupChatViewUI {
         frame.getContentPane().add(messageInputField, BorderLayout.SOUTH);
 
         sendButton = new JButton("Send");
-
         backButton = new JButton("Back");
 
         actionlistener();
         keyListener();
 
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
-
         frame.getContentPane().add(backButton, BorderLayout.NORTH);
 
-        appendUnreadMessages();
+        for (StorageMessage message : messageRepository.getChatHistory(groupName)) {
+            messageDisplayArea.append(message.sender + ": " + message.message+"\n");
+        }
     }
 
     public void keyListener() {
         messageInputField.addKeyListener(new KeyListener() {
             @Override
-            public void keyTyped(KeyEvent e) {
-            }
-
+            public void keyTyped(KeyEvent e) { }
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
                     sendMessage();
                 }
             }
-
             @Override
-            public void keyReleased(KeyEvent e) {
-            }
+            public void keyReleased(KeyEvent e) { }
         });
 
     }
 
     public void actionlistener() {
-
         sendButton.addActionListener(e -> sendMessage());
-
         backButton.addActionListener(e -> {
             mainUI.closeGroup();
             frame.dispose();
@@ -164,49 +166,52 @@ public class GroupChatViewUI {
         mainUI.setVisible(true);
     }
 
-    public void appendUnreadMessages() {
-        if(mainUI.getUnreadMessages().containsKey(groupName)){
-            ArrayList<Message> messages = mainUI.getUnreadMessages().get(groupName);
-            for (int i = 0; i < messages.size(); i++) {
-                messageDisplayArea.append(messages.get(i).peerUsername + ": " + messages.get(i).plaintext + "\n");
-            }
-            mainUI.deleteStoredUnreadMessages(groupName);
-        }
-    }
+//    public void appendUnreadMessages() {
+//        if(mainUI.getUnreadMessages().containsKey(groupName)){
+//            ArrayList<StorageMessage> messages = mainUI.getUnreadMessages().get(groupName);
+//            for (StorageMessage message : messages) {
+//                messageDisplayArea.append(message.sender + ": " + message.message + "\n");
+//            }
+//            mainUI.deleteStoredUnreadMessages(groupName);
+//        }
+//    }
 
     public void setVisible(boolean visible) {
         frame.setVisible(visible);
     }
 
     public void sendMessage() {
-        //TODO this is probably dumb
-        String groupMessageIdentifier = "GROUP_MESSAGE@"+groupName+"@";
-        String message = messageInputField.getText();
-        for (int i = 0; i < members.size(); i++) {
-            PeerConnection receiver = user.peerConnections.get(members.get(i));
-            if (receiver != null) {
-                new Thread(() -> {
-                    receiver.sendMessage(groupMessageIdentifier + message);
-                }).start();
-            }
-        }
+        String plaintext = messageInputField.getText();
 
-        if (!message.isEmpty()) {
-            messageDisplayArea.append("Me: " + message + "\n");
-            messageInputField.setText("");
+        if (plaintext.isEmpty()) return;
+
+        messageDisplayArea.append("Me: " + plaintext + "\n");
+        messageInputField.setText("");
+
+        try {
+            String signature = user.encryptionManager.signMessage(plaintext);
+            GroupMessage groupMessage = new GroupMessage(signature, plaintext, groupName);
+
+            for (String member : members) {
+                PeerConnection receiver = user.peerConnections.get(member);
+                if (receiver != null) {
+                    new Thread(() -> {
+                        receiver.sendMessage(groupMessage.encode());
+                    }).start();
+                }
+            }
+
+        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+            logger.log(Level.WARNING, "Group message not send");
         }
     }
 
-    public void showMessageReceived(Message message) {
-        messageDisplayArea.append(message.peerUsername + ": " + message.plaintext + "\n");
+    public void showMessageReceived(StorageMessage message) {
+        messageDisplayArea.append(message.sender + ": " + message.message + "\n");
         messageInputField.setText("");
     }
 
     public String getGroupName() {
         return this.groupName;
     }
-
-    /*public String getReceiverUsername() {
-        return receiverUsername;
-    }*/
 }

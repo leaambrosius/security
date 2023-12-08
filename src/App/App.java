@@ -17,11 +17,11 @@ public class App {
     // TODO handle nacks
 
     public static void runMainUI(String username) {
-        Peer user = new Peer(username, serverIP, serverPort, localPort);
-        if(!user.announceToServer()){
+        try {
+            Peer user = new Peer(username, serverIP, serverPort, localPort);
+            MainScreenUI mainScreen = new MainScreenUI(user);
+        } catch (Exception e) {
             System.exit(1);
         }
-        MainScreenUI mainScreen = new MainScreenUI(user);
     }
-
 }

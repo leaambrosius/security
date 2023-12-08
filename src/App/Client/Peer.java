@@ -1,8 +1,6 @@
 package App.Client;
 
-import App.Messages.Message;
-import App.Messages.MessageHandler;
-import App.Messages.MessageType;
+import App.Messages.*;
 import App.Storage.KeyRepository;
 import Utils.InvalidMessageException;
 import Utils.MessageListener;
@@ -29,123 +27,120 @@ import java.util.logging.Logger;
 
 public class Peer {
     static Logger logger = Logger.getLogger(Peer.class.getName());
-    private static final MessageHandler messageHandler = new MessageHandler();
 
-    public String username;
-    private KeyPair keyPair;
-    private String serverIP;
-    private String serverPort;
-    private String localPort;
+    private final String serverIP;
+    private final String serverPort;
+    private final String localPort;
+    public final String username;
+
+    private final KeyPair keyPair;
+    public final EncryptionManager encryptionManager;
+
     private ServerSocket connectableSocket;
-
     private MessageListener listener;
 
     public HashMap<String, PeerConnection> peerConnections = new HashMap<>();
 
-    public Peer(String username, String serverIP, String serverPort, String localPort) {
+    public Peer(String username, String serverIP, String serverPort, String localPort) throws NoSuchAlgorithmException, IOException, ClassNotFoundException {
         this.username = username;
         this.serverIP = serverIP;
         this.serverPort = serverPort;
         this.localPort = localPort;
+
+        boolean isFirstLogin = !KeyRepository.keysExist(this.username);
+        this.keyPair = KeyRepository.getKeys(this.username);
+        this.encryptionManager = new EncryptionManager(this.keyPair);
+        this.announceToServer(isFirstLogin);
     }
 
-    public void setMessageListener(MessageListener listener) {
-        this.listener = listener;
-    }
-
-    private String registerToTracker() {
-        String encodedMessage = messageHandler.encodeMessage(new Message(MessageType.REGISTER,
-                new String[] { username, localPort, PublicKeyUtils.publicKeyToString(keyPair.getPublic()) }));
-        logger.log(Level.INFO, "Register message sent to P2P server: " + encodedMessage);
-        return sendToServer(encodedMessage);
-    }
-
-    private String loginToTracker() throws NoSuchAlgorithmException, InvalidKeySpecException, SignatureException, InvalidKeyException {
-        String signedMessage = signMessageToTracker(username);
-        String encodedMessage = messageHandler.encodeMessage(new Message(MessageType.LOGIN,
-                new String[] { username, localPort, signedMessage }));
-        logger.log(Level.INFO, "Login message sent to P2P server: " + encodedMessage);
-        return sendToServer(encodedMessage);
-    }
-
-    public boolean announceToServer() {
+    // TODO change to private after testing
+    public void announceToServer(boolean isFirstLogin) {
         try {
-                boolean isFirstLogin = !KeyRepository.keysExist(this.username);
-                this.keyPair = KeyRepository.getKeys(this.username);
-                String response;
-
-                if (isFirstLogin) {
-                    response = registerToTracker();
-                } else {
-                    response = loginToTracker();
-                }
-
+            String response = isFirstLogin ?  registerToTracker() : loginToTracker();
             logger.log(Level.INFO, "Received response from server: " + response);
-            Message message = messageHandler.decodeMessage(response);
 
-            if (!message.verifyLength(2) || !message.isAck()) {
-                logger.log(Level.WARNING, "Do not received ack message: " + response);
-                return false;
+            ResponseMessage registerResponse = ResponseMessage.fromString(response);
+
+            if (!registerResponse.isAck()) {
+                throw new Exception("Server refused connection: " + response);
             }
 
             // Open connectable socket for incoming peers connections
             openConnectableSocket();
             listenForConnections();
-            return true;
 
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return true;
     }
 
-    private String sendToServer(String data) {
+    private String registerToTracker() {
+        String registerMessage = new RegisterMessage(username, localPort, PublicKeyUtils.publicKeyToString(keyPair.getPublic())).encode();
+        logger.log(Level.INFO, "Register message sent to P2P server: " + registerMessage);
+        return sendToServer(registerMessage);
+    }
+
+    private String loginToTracker() throws NoSuchAlgorithmException, SignatureException, InvalidKeyException {
+        String signature = encryptionManager.signMessage(username + "@" + localPort);
+        LoginMessage loginMessage = new LoginMessage(username, localPort, signature);
+        String encodedMessage = loginMessage.encode();
+        logger.log(Level.INFO, "Login message sent to P2P server: " + encodedMessage);
+        return sendToServer(encodedMessage);
+    }
+
+    public void connectToPeer(String peerUsername) {
+        PeerData peerData = this.getPeerData(peerUsername);
+        PeerConnection newPeerConnection = new PeerConnection(this, peerData,listener);
+        newPeerConnection.setMessageListener(listener);
+
+        if(newPeerConnection.initiateChat(this.username)) {
+            peerConnections.put(peerUsername, newPeerConnection);
+            logger.log(Level.INFO, "Connection accepted by peer");
+        } else {
+            newPeerConnection.closeConnection();
+            logger.log(Level.WARNING, "Connection refused by peer");
+        }
+    }
+
+    public PeerData getPeerData(String peerUsername) {
         try {
+            PeerDiscoverMessage peerDiscoverMessage = new PeerDiscoverMessage(peerUsername);
+            String encodedMessage = peerDiscoverMessage.encode();
+            String serverResponse = sendToServer(encodedMessage);
+            PeerDataMessage responseMessage = PeerDataMessage.fromString(serverResponse);
 
-            TrustManager[] trustManagers = {new X509TrustManager() {
-                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                    return null;
-                }
+            String peerIP = responseMessage.getPeerIp();
+            String peerPort = responseMessage.getPeerPort();
+            PublicKey peerPublicKey = PublicKeyUtils.stringToPublicKey(responseMessage.getPeerPublicKey());
+            logger.log(Level.INFO, "Received peer data from server: " + peerUsername + ":" + peerIP + ":" + peerPort);
+            return new PeerData(peerUsername, peerIP, peerPort, peerPublicKey);
 
-                public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) {
-                }
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Received invalid peer data from server: " + e);
+            return null;
+        }
+    }
 
-                public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) {
-                }
-            }};
-
-            // Create SSLContext with the custom trust manager
-            SSLContext sslContext = SSLContext.getInstance("TLS");
-            sslContext.init(null, trustManagers, new SecureRandom());
-
-            SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
-
-            // Create SSL socket and connect to the server
-            SSLSocket socket = (SSLSocket) sslSocketFactory.createSocket(serverIP, Integer.parseInt(serverPort));
-            String[] enabledProtocols = socket.getEnabledProtocols();
-            socket.setEnabledProtocols(enabledProtocols);
-            socket.setEnabledCipherSuites(socket.getSupportedCipherSuites());
-
-            socket.startHandshake();
-            System.out.println("Connected to server: " + serverIP);
-
+    private String sendToServer(String encodedMessage) {
+        try {
+            SSLSocket socket = encryptionManager.getSSLSocket(serverIP, serverPort);
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-            out.println(data);
+            out.println(encodedMessage);
             String response = in.readLine();
             socket.close();
             return response;
 
         } catch (IOException | NoSuchAlgorithmException | KeyManagementException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Message not send to server: " + encodedMessage);
             return null;
         }
     }
 
     private void openConnectableSocket() throws IOException {
         connectableSocket = new ServerSocket(Integer.parseInt(this.localPort));
-        logger.log(Level.INFO, "Opened connectable server on port " + this.localPort);
+        logger.log(Level.INFO, "Opened connectable server on port: " + this.localPort);
     }
 
     private void listenForConnections() {
@@ -156,7 +151,7 @@ public class Peer {
                     new Thread(() -> handleIncomingConnection(peerSocket)).start();
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Error while waiting for peer connections: " + e);
             }
         }).start();
     }
@@ -167,83 +162,31 @@ public class Peer {
 
         logger.log(Level.INFO, "Incoming peer: " + peerIP + ":" + peerPort);
 
-        PeerConnection newPeerConnection = new PeerConnection(this, keyPair, peerSocket);
+        PeerConnection newPeerConnection = new PeerConnection(this, peerSocket);
         newPeerConnection.setMessageListener(listener);
         newPeerConnection.acceptChat();
     }
 
-    public void connectToPeer(String peerUsername) {
-        PeerData peerData = this.getPeerData(peerUsername);
-        PeerConnection newPeerConnection = new PeerConnection(this, keyPair, peerData,listener);
-        newPeerConnection.setMessageListener(listener);
-        boolean isConnectionAccepted = newPeerConnection.announceToPeer(this.username);
 
-        if(isConnectionAccepted) {
-            logger.log(Level.INFO, "Connection accepted by peer");
-
-            peerConnections.put(peerUsername, newPeerConnection);
-            newPeerConnection.initiateChat();
-        } else {
-            newPeerConnection.closeConnection();
-        }
-    }
-
-    // PEER/PEER_IP/PEER_PORT/PEER_PUBLIC_KEY
-    public PeerData getPeerData(String peerUsername) {
-        try {
-            String request = messageHandler.encodeMessage(new Message(MessageType.PEER, new String[] { peerUsername }));
-            String response = sendToServer(request);
-            Message responseMessage = messageHandler.decodeMessage(response);
-
-            if (!responseMessage.verifyLength(4) || !(responseMessage.getType() == MessageType.PEER)) {
-                logger.log(Level.WARNING, "Received invalid response: " + response);
-                throw new InvalidMessageException(response);
-            }
-
-            String[] responseParts = responseMessage.getParts();
-            String peerIP = responseParts[1];
-            int peerPort = Integer.parseInt(responseParts[2]);
-            PublicKey peerPublicKey = PublicKeyUtils.stringToPublicKey(responseParts[3]);
-            logger.log(Level.INFO, "Received peer data from server: " + peerUsername + ":" + peerIP + ":" + peerPort);
-            return new PeerData(peerUsername, peerIP, peerPort, peerPublicKey);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    public String signMessageToTracker(String message) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, SignatureException {
-        byte[] privateKeyBytes = this.keyPair.getPrivate().getEncoded();
-
-        // TODO extract encryption stuff to separate module and reuse
-        Signature signature = Signature.getInstance("SHA256withRSA");
-        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(privateKeyBytes);
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        PrivateKey privateKey = keyFactory.generatePrivate(keySpec);
-        signature.initSign(privateKey);
-
-        signature.update(message.getBytes());
-        byte[] signatureBytes = signature.sign();
-
-        String signatureBase64 = Base64.getEncoder().encodeToString(signatureBytes);
-        return signatureBase64;
-    }
-
-    public void sendMessage(String peerUsername, String message) {
-        if (this.peerConnections.containsKey(peerUsername)) {
-            PeerConnection connection = this.peerConnections.get(peerUsername);
-            connection.sendMessage(message);
-        } else {
-            logger.log(Level.WARNING, "Sending message failed: no active connection");
-            this.connectToPeer(peerUsername);
-            PeerConnection connection = this.peerConnections.get(peerUsername);
-            connection.sendMessage(message);
-            // TODO verify if that works
-        }
-    }
+//    public void sendMessage(String peerUsername, String message) {
+//        if (this.peerConnections.containsKey(peerUsername)) {
+//            PeerConnection connection = this.peerConnections.get(peerUsername);
+//            connection.sendMessage(message);
+//        } else {
+//            logger.log(Level.WARNING, "Sending message failed: no active connection");
+//            this.connectToPeer(peerUsername);
+//            PeerConnection connection = this.peerConnections.get(peerUsername);
+//            connection.sendMessage(message);
+//            // TODO verify if that works
+//        }
+//    }
 
     private String getPeerSocketIP(Socket peerSocket) {
         return  peerSocket.getInetAddress().toString().replace("/", "");
     }
+
+    public void setMessageListener(MessageListener listener) {
+        this.listener = listener;
+    }
+
 }

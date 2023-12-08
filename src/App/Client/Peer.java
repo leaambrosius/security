@@ -41,7 +41,7 @@ public class Peer {
 
     public HashMap<String, PeerConnection> peerConnections = new HashMap<>();
 
-    public Peer(String username, String serverIP, String serverPort, String localPort) throws NoSuchAlgorithmException, IOException, ClassNotFoundException {
+    public Peer(String username, String serverIP, String serverPort, String localPort) throws Exception {
         this.username = username;
         this.serverIP = serverIP;
         this.serverPort = serverPort;
@@ -53,25 +53,19 @@ public class Peer {
         this.announceToServer(isFirstLogin);
     }
 
-    // TODO change to private after testing
-    public void announceToServer(boolean isFirstLogin) {
-        try {
-            String response = isFirstLogin ?  registerToTracker() : loginToTracker();
-            logger.log(Level.INFO, "Received response from server: " + response);
+    private void announceToServer(boolean isFirstLogin) throws Exception {
+        String response = isFirstLogin ?  registerToTracker() : loginToTracker();
+        logger.log(Level.INFO, "Received response from server: " + response);
 
-            ResponseMessage registerResponse = ResponseMessage.fromString(response);
+        ResponseMessage registerResponse = ResponseMessage.fromString(response);
 
-            if (!registerResponse.isAck()) {
-                throw new Exception("Server refused connection: " + response);
-            }
-
-            // Open connectable socket for incoming peers connections
-            openConnectableSocket();
-            listenForConnections();
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (!registerResponse.isAck()) {
+            throw new Exception("Server refused connection: " + response);
         }
+
+        // Open connectable socket for incoming peers connections
+        openConnectableSocket();
+        listenForConnections();
     }
 
     private String registerToTracker() {

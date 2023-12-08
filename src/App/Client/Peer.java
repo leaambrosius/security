@@ -89,6 +89,8 @@ public class Peer {
     }
 
     public void connectToPeer(String peerUsername) {
+        logger.log(Level.INFO, "Connecting to: " + peerUsername);
+
         PeerData peerData = this.getPeerData(peerUsername);
         PeerConnection newPeerConnection = new PeerConnection(this, peerData,listener);
         newPeerConnection.setMessageListener(listener);
@@ -166,20 +168,6 @@ public class Peer {
         newPeerConnection.setMessageListener(listener);
         newPeerConnection.acceptChat();
     }
-
-
-//    public void sendMessage(String peerUsername, String message) {
-//        if (this.peerConnections.containsKey(peerUsername)) {
-//            PeerConnection connection = this.peerConnections.get(peerUsername);
-//            connection.sendMessage(message);
-//        } else {
-//            logger.log(Level.WARNING, "Sending message failed: no active connection");
-//            this.connectToPeer(peerUsername);
-//            PeerConnection connection = this.peerConnections.get(peerUsername);
-//            connection.sendMessage(message);
-//            // TODO verify if that works
-//        }
-//    }
 
     private String getPeerSocketIP(Socket peerSocket) {
         return  peerSocket.getInetAddress().toString().replace("/", "");

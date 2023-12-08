@@ -29,16 +29,18 @@ public class GroupMessage extends Message {
     }
 
     public String encode() {
-        return type + "@" + messageId + "@" + timestamp + "@" + signature + "@" + messageText;
+        return type + "@" + groupName + "@" + messageId + "@" + timestamp + "@" + signature + "@" + messageText;
     }
 
     public void decode(String message) throws InvalidMessageException {
         String[] parts = message.split("@");
-        if (parts.length == 5 && parts[0].equals(type.toString())) {
-            this.messageId = parts[1];
-            this.timestamp = parts[2];
-            this.messageText = parts[3];
+        if (parts.length == 6 && parts[0].equals(type.toString())) {
+            this.groupName = parts[1];
+            this.messageId = parts[2];
+            this.timestamp = parts[3];
             this.signature = parts[4];
+            this.messageText = parts[5];
+
         } else {
             throw new InvalidMessageException("Bad message format: " + message);
         }

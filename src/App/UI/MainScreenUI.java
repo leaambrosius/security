@@ -22,20 +22,18 @@ public class MainScreenUI extends JFrame implements MessageListener {
     private CardLayout cardLayout;
     private JList<String> conversationsList;
     private JButton startConversationButton;
-    private List<ConversationViewUI> activeConversations;
-    private Peer user;
+    private final List<ConversationViewUI> activeConversations;
+    private final Peer user;
     private DefaultListModel<String> currentModel = null;
     private ConversationViewUI openedChat = null;
     private GroupChatViewUI openedGroup = null;
-    private HashSet<String> existingGroupChats = new HashSet<>();
-    private HashMap<String, ArrayList<String>> groupChatsMembers = new HashMap<>();
-
-    private MessagesRepository messageRepository;
+    private final HashSet<String> existingGroupChats = new HashSet<>();
+    private final HashMap<String, ArrayList<String>> groupChatsMembers = new HashMap<>();
 
     public MainScreenUI(Peer user) {
         this.user = user;
-        this.messageRepository = new MessagesRepository();
         initialize();
+        MessagesRepository.mr();
         activeConversations = new ArrayList<>();
         user.setMessageListener(this);
         setVisible(true);
@@ -74,21 +72,19 @@ public class MainScreenUI extends JFrame implements MessageListener {
     }
 
     private void getContactsList() {
-        messageRepository.loadChatRooms();
-
         ArrayList<String> contacts = new ArrayList<>();
         contacts.add("Add User");
         contacts.add("Create group chat");
 
         ArrayList<String> chatRooms = new ArrayList<>();
 
-        for (Map.Entry<String, ChatRecord> entry : messageRepository.peerToChat.entrySet()) {
+        for (Map.Entry<String, ChatRecord> entry : MessagesRepository.mr().peerToChat.entrySet()) {
             String peer = entry.getKey();
             contacts.add(peer);
             chatRooms.add(peer);
         }
 
-        for (Map.Entry<String, GroupRecord> entry : messageRepository.groups.entrySet()) {
+        for (Map.Entry<String, GroupRecord> entry : MessagesRepository.mr().groups.entrySet()) {
             String group = entry.getKey();
             contacts.add(group);
             existingGroupChats.add(group);
@@ -137,7 +133,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     }
 
     public void createGroupChat(String groupName, ArrayList<String> members) {
-        if(invalidGroupName(groupName)){
+        if (invalidGroupName(groupName)) {
             showWarning("Group name is equal to another name in contact list");
             return;
         }
@@ -145,15 +141,16 @@ public class MainScreenUI extends JFrame implements MessageListener {
         existingGroupChats.add(groupName);
         members.add(user.username);
         groupChatsMembers.put(groupName, members);
-        GroupChatViewUI creatingGroup = new GroupChatViewUI(members, user, groupName, messageRepository);
 
         try {
             GroupRecord newGroup = new GroupRecord(members, groupName);
-            messageRepository.addGroup(newGroup);
-            FileManager.saveGroup(newGroup);
+            MessagesRepository.mr().addGroup(newGroup);
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
+
+        GroupChatViewUI creatingGroup = new GroupChatViewUI(members, user, groupName);
+
     }
 
     private void showWarning(String message) {
@@ -175,17 +172,18 @@ public class MainScreenUI extends JFrame implements MessageListener {
 
 
     //Used when creating a new group chat
-    public void addGroupChat(String groupName, ArrayList<String> members) {
+    public void addGroupChat(String groupName, ArrayList<String> members, String groupStorageKey) {
         //TODO check if group name is not equal to any user name or any group
 
         addNewContactOrGroup(groupName);
         existingGroupChats.add(groupName);
         groupChatsMembers.put(groupName, members);
+        MessagesRepository.mr().addGroup(new GroupRecord(members, groupName, groupStorageKey));
     }
 
     //Used when received a group chat invitation
     private void openGroupChat(String groupName) {
-        GroupChatViewUI groupChatViewUI = new GroupChatViewUI(this, groupChatsMembers.get(groupName), currentModel, this.user, groupName, messageRepository);
+        GroupChatViewUI groupChatViewUI = new GroupChatViewUI(this, groupChatsMembers.get(groupName), currentModel, this.user, groupName);
         groupChatViewUI.setVisible(true);
         openedGroup = groupChatViewUI;
         UnreadMessagesCellRenderer.readMessage(groupName);
@@ -193,7 +191,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     }
 
     private void openConversationView(String user) {
-        ConversationViewUI conversationView = new ConversationViewUI(this, user, currentModel, this.user,this.messageRepository);
+        ConversationViewUI conversationView = new ConversationViewUI(this, user, this.user);
         activeConversations.add(conversationView);
         conversationView.setVisible(true);
         openedChat = conversationView;
@@ -246,10 +244,6 @@ public class MainScreenUI extends JFrame implements MessageListener {
         }
         cardPanel.remove(cardPanel.getComponentCount() - 1);
         addNewContactOrGroup(inputText);
-
-        ChatRecord newChat = new ChatRecord(inputText, "", "");
-        messageRepository.addChat(newChat);
-        FileManager.saveContact(newChat);
     }
 
     /**
@@ -359,7 +353,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     private void handleNormalChatMessages(ChatMessage messageToStore, String peerUsername) {
         String chatId = user.peerConnections.get(peerUsername).chatId;
         StorageMessage storageMessage = new StorageMessage(messageToStore, peerUsername, chatId);
-        messageRepository.addMessage(storageMessage, peerUsername);
+        MessagesRepository.mr().addMessage(storageMessage);
 
         if (isChatActive(peerUsername)) {
             // Send the msg to the open chat window to be displayed
@@ -380,21 +374,19 @@ public class MainScreenUI extends JFrame implements MessageListener {
 
     private void handleGroupMessageInvitation(GroupInvitationMessage message, String sender) {
         String groupName = message.getGroupName();
-        String cleanedMembersList = message.getMembers().replaceAll("[\\[\\]\"]", "");
-        String[] membersArray = cleanedMembersList.split(",\\s*");
-        ArrayList<String> members = new ArrayList<>(Arrays.asList(membersArray));
-        checkInvitation(sender, groupName, members);
+        String storageKey = message.getStorageKey();
+        ArrayList<String> members = message.getMembers();
+        checkInvitation(sender, groupName, members, storageKey);
     }
 
     private void handleGroupMessage(GroupMessage message, String sender) {
         String groupName = message.getGroupName();
         StorageMessage storageMessage = new StorageMessage(message, sender);
+        MessagesRepository.mr().addMessage(storageMessage);
         handleMessagesFromGroupChats(groupName, storageMessage);
     }
 
     private void handleMessagesFromGroupChats(String groupName, StorageMessage message) {
-        messageRepository.addMessage(message, groupName);
-
         if (isGroupWindowOpened(groupName)) {
             openedGroup.showMessageReceived(message);
         } else {
@@ -410,10 +402,10 @@ public class MainScreenUI extends JFrame implements MessageListener {
         return openedGroup != null && openedGroup.getGroupName().equals(groupName);
     }
 
-    private void checkInvitation(String host, String groupName, ArrayList<String> members) {
+    private void checkInvitation(String host, String groupName, ArrayList<String> members, String groupStorageKey) {
         if (isGroupHostKnown(host)) {
             // Only someone from contacts can add peer in a new group
-            addGroupChat(groupName, members);
+            addGroupChat(groupName, members, groupStorageKey);
         }
     }
 

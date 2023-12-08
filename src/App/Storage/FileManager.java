@@ -1,7 +1,5 @@
 package App.Storage;
 
-import org.checkerframework.checker.units.qual.A;
-
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,7 +23,7 @@ public class FileManager {
                     String chatId = parts[0];
                     String peer = parts[1];
                     String symmetricKey = parts[2];
-                    chats.add(new ChatRecord(chatId, peer, symmetricKey));
+                    chats.add(new ChatRecord(peer, chatId, symmetricKey));
                 }
             }
         } catch (IOException e) {

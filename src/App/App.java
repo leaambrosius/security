@@ -9,9 +9,12 @@ import javax.swing.*;
 public class App {
     static String serverPort = "12345";
     static String serverIP = "localhost";
-    static String localPort = "54321";
+    static String localPort = "54320";
 
     public static void main(String[] args) {
+        if (args.length > 0) {
+            localPort = args[0];
+        }
         SwingUtilities.invokeLater(UsernameSubmitUI::new);
     }
     // TODO handle nacks

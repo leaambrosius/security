@@ -1,6 +1,9 @@
 package App.Client;
 
 import App.Messages.*;
+import App.Storage.ChatRecord;
+import App.Storage.FileManager;
+import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
 import Utils.InvalidMessageException;
 import Utils.MessageListener;
@@ -101,7 +104,7 @@ public class PeerConnection {
                 String ack = responseMessage.generateACK();
                 String encryptedAck = host.encryptionManager.encryptWithPeerPublicKeyToString(ack, peerData.publicKey);
                 sendToPeer(encryptedAck);
-                logger.log(Level.INFO, "User announcement ack");
+                logger.log(Level.INFO, "User announcement ack: " + peerUsername);
             } else {
                 logger.log(Level.WARNING, "Peer data does not match with server record, connection not accepted");
             }
@@ -117,14 +120,22 @@ public class PeerConnection {
             // Generate a symmetric key
             KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
             this.sessionSymmetricKey = keyGenerator.generateKey();
-            this.storageSymmetricKey = keyGenerator.generateKey();
-            this.chatId = String.valueOf(storageSymmetricKey.hashCode());
-
             String sessionSymmetricKeyString = Base64.getEncoder().encodeToString(sessionSymmetricKey.getEncoded());
             logger.log(Level.INFO, "Setup session symmetric key: " + Arrays.toString(sessionSymmetricKey.getEncoded()));
 
+            String previousStorageKey = MessagesRepository.mr().getStorageKey(peerData.username);
+            if (!previousStorageKey.isEmpty()) {
+                byte[] storageKeyBytes = Base64.getDecoder().decode(previousStorageKey);
+                this.storageSymmetricKey = new SecretKeySpec(storageKeyBytes, 0, storageKeyBytes.length, "AES");
+            } else {
+                this.storageSymmetricKey = keyGenerator.generateKey();
+            }
+
             String storageSymmetricKeyString = Base64.getEncoder().encodeToString(storageSymmetricKey.getEncoded());
             logger.log(Level.INFO, "Setup storage symmetric key: " + Arrays.toString(storageSymmetricKey.getEncoded()));
+
+            this.chatId = String.valueOf(storageSymmetricKey.hashCode());
+            logger.log(Level.INFO, "Setup chat id: " + this.chatId);
 
             // Send the encrypted symmetric key to the peer
             String handshakeMessage = new HandshakeMessage(sessionSymmetricKeyString, storageSymmetricKeyString).encode();
@@ -157,13 +168,15 @@ public class PeerConnection {
             // Reconstruct the symmetric keys
             String decryptedSessionSymmetricKeyString = handshakeMessage.getSessionSymmetricKey();
             byte[] symmetricKeyBytes = Base64.getDecoder().decode(decryptedSessionSymmetricKeyString);
-            sessionSymmetricKey = new SecretKeySpec(symmetricKeyBytes, 0, symmetricKeyBytes.length, "AES");
+            this.sessionSymmetricKey = new SecretKeySpec(symmetricKeyBytes, 0, symmetricKeyBytes.length, "AES");
             logger.log(Level.INFO, "Symmetric key " + Arrays.toString(sessionSymmetricKey.getEncoded()));
 
             String decryptedStorageSymmetricKeyString = handshakeMessage.getStorageSymmetricKey();
             symmetricKeyBytes = Base64.getDecoder().decode(decryptedStorageSymmetricKeyString);
-            storageSymmetricKey = new SecretKeySpec(symmetricKeyBytes, 0, symmetricKeyBytes.length, "AES");
-            logger.log(Level.INFO, "Symmetric key " + Arrays.toString(storageSymmetricKey.getEncoded()));
+            this.storageSymmetricKey = new SecretKeySpec(symmetricKeyBytes, 0, symmetricKeyBytes.length, "AES");
+            this.chatId = String.valueOf(storageSymmetricKey.hashCode());
+            logger.log(Level.INFO, "Storage key " + Arrays.toString(storageSymmetricKey.getEncoded()));
+            logger.log(Level.INFO, "Chat ID " + this.chatId);
 
             this.chatId = String.valueOf(storageSymmetricKey.hashCode());
 
@@ -189,27 +202,10 @@ public class PeerConnection {
 
     public void startConversation() {
         logger.log(Level.INFO, "Started listening for chat messages");
+        ChatRecord chat = new ChatRecord(peerData.username, chatId, Base64.getEncoder().encodeToString(storageSymmetricKey.getEncoded()));
+        MessagesRepository.mr().addChat(chat);
         new Thread(this::listenForMessages).start();
-//        sendMessages();
     }
-    // TODO check if needed
-//    private void sendMessages() {
-//        try {
-//            BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
-//            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-//            String input;
-//
-//            while ((input = userInput.readLine()) != null) {
-//                String encryptedMessage = encryptMessageWithSymmetricKey(input);
-//                logger.log(Level.INFO, "$(" + this.socket.getLocalAddress() + ":" + this.socket.getLocalPort() + ") to " + (this.peerData != null ? this.peerData.username : "unknown") + "(" + socket.getInetAddress() + ":" + socket.getPort() + "): " + input);
-//                out.println(encryptedMessage);
-//            }
-//            closeConnection();
-//
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//    }
 
     private void listenForMessages() {
         try {
@@ -272,16 +268,8 @@ public class PeerConnection {
         String messageType = parts[0];
 
         return switch (messageType) {
-            case "MESSAGE" -> {
-                ChatMessage message = ChatMessage.fromString(encodedMessage);
-                StorageMessage messageToStore = new StorageMessage(message, peerData.username, chatId);
-                yield message;
-            }
-            case "GROUP_MESSAGE" -> {
-                GroupMessage message = GroupMessage.fromString(encodedMessage);
-                StorageMessage messageToStore = new StorageMessage(message, peerData.username);
-                yield message;
-            }
+            case "MESSAGE" -> ChatMessage.fromString(encodedMessage);
+            case "GROUP_MESSAGE" -> GroupMessage.fromString(encodedMessage);
             case "GROUP_INVITATION" -> GroupInvitationMessage.fromString(encodedMessage);
             default -> {
                 logger.log(Level.WARNING, "Unknown message type: " + messageType);

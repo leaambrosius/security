@@ -1,9 +1,12 @@
 package App.Storage;
 
 import App.UI.GroupChatViewUI;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
 import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
+import javax.sql.DataSource;
 import java.io.*;
 import java.security.*;
 import java.util.*;
@@ -19,8 +22,16 @@ public class MessagesRepository {
     public HashMap<String, ChatRecord> peerToChat = new HashMap<>();
     public HashMap<String, GroupRecord> groups = new HashMap<>();
 
+    private static MessagesRepository messagesRepository; // Singleton instance
 
-    public void loadChatRooms(){
+    public static MessagesRepository mr() {
+        if (messagesRepository == null) {
+            messagesRepository = new MessagesRepository();
+        }
+        return messagesRepository;
+    }
+
+    public MessagesRepository() {
         ArrayList<ChatRecord> chatRecords = FileManager.readContacts();
         for (ChatRecord r : chatRecords) {
             chats.put(r.chatId, r);
@@ -35,26 +46,45 @@ public class MessagesRepository {
         }
     }
 
-    public void addMessage(StorageMessage message, String chatId) {
-        if (chatsHistory.containsKey(chatId)) {
-            ArrayList<StorageMessage> chatRoomHistory = chatsHistory.get(chatId);
-            chatRoomHistory.add(message);
+    public void addMessage(StorageMessage message) {
+        if (chatsHistory.containsKey(message.chatId)) {
+            chatsHistory.get(message.chatId).add(message);
         }
     }
 
     public void addGroup(GroupRecord group) {
-        groups.put(group.chatId, group);
-        chatsHistory.put(group.chatId, new ArrayList<>());
+        if (!groups.containsKey(group.chatId)) {
+            groups.put(group.chatId, group);
+            chatsHistory.put(group.chatId, new ArrayList<>());
+            FileManager.saveGroup(group);
+        }
     }
 
     public void addChat(ChatRecord chat) {
-        chats.put(chat.chatId, chat);
-        peerToChat.put(chat.peer, chat);
-        chatsHistory.put(chat.chatId, new ArrayList<>());
+        if (!chats.containsKey(chat.chatId)) {
+            chats.put(chat.chatId, chat);
+            peerToChat.put(chat.peer, chat);
+            chatsHistory.put(chat.chatId, new ArrayList<>());
+            FileManager.saveContact(chat);
+        }
     }
 
     public ArrayList<StorageMessage> getChatHistory(String chatId) {
         return chatsHistory.getOrDefault(chatId, new ArrayList<>());
+    }
+
+    public String getStorageKey(String username) {
+        if (peerToChat.containsKey(username)) {
+            return peerToChat.get(username).symmetricKey;
+        }
+        return "";
+    }
+
+    public String getGroupStorageKey(String groupName) {
+        if (groups.containsKey(groupName)) {
+            return groups.get(groupName).symmetricKey;
+        }
+        return "";
     }
 
     public void encryptAndSendToStorage() {

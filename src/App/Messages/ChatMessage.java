@@ -26,7 +26,7 @@ public class ChatMessage extends Message {
     }
 
     public String encode() {
-        return type + "@" + messageId + "@" + timestamp + "@" + signature + "@" + messageText;
+        return type + "@" + messageId + "@" + timestamp + "@" + messageText + "@" + signature;
     }
 
     public void decode(String message) throws InvalidMessageException {

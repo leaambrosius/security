@@ -19,8 +19,13 @@ public class GroupRecord {
     public GroupRecord(ArrayList<String> members, String chatId) throws NoSuchAlgorithmException {
         this.members = members;
         this.chatId = chatId;
-        this.symmetricKey = Base64.getEncoder().encodeToString(KeyGenerator.getInstance("AES").generateKey().getEncoded());
-        ;
+
+        String key = MessagesRepository.mr().getGroupStorageKey(chatId);
+        if (key.isEmpty()) {
+            this.symmetricKey = Base64.getEncoder().encodeToString(KeyGenerator.getInstance("AES").generateKey().getEncoded());
+        } else {
+            this.symmetricKey = key;
+        }
     }
 
     public String toStorageString() {

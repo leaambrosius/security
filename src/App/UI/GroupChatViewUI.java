@@ -7,6 +7,7 @@ import App.Messages.GroupMessage;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
 
+import javax.crypto.KeyGenerator;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -15,6 +16,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -31,47 +33,38 @@ public class GroupChatViewUI {
     private JButton backButton;
 
     private ArrayList<String> members;
-    private MessagesRepository messageRepository;
-    private DefaultListModel<String> mainModel;
-
     private String groupName;
-
     private Peer user;
-
     private MainScreenUI mainUI;
 
 
-    public GroupChatViewUI(MainScreenUI mainUI, ArrayList<String> members, DefaultListModel<String> mainModel, Peer user, String groupName, MessagesRepository messageRepository) {
+    public GroupChatViewUI(MainScreenUI mainUI, ArrayList<String> members, DefaultListModel<String> mainModel, Peer user, String groupName) {
         this.mainUI = mainUI;
         this.members = members;
-        this.mainModel = mainModel;
         this.user = user;
         this.groupName = groupName;
-        this.messageRepository = messageRepository;
         openSocketsWithGroupMembers();
         initialize();
     }
 
-    public GroupChatViewUI(ArrayList<String> members, Peer user, String groupName, MessagesRepository messageRepository)
-
-    {
+    public GroupChatViewUI(ArrayList<String> members, Peer user, String groupName) {
         this.members = members;
         this.user = user;
         this.groupName = groupName;
-        this.messageRepository = messageRepository;
 
         openSocketsWithGroupMembers();
         //TODO find a better way to wait for handshake and then invite members
         try {
             Thread.sleep(1000);
-        } catch (InterruptedException e) {
+            inviteMembers();
+        } catch (InterruptedException | NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        inviteMembers();
     }
 
-    public void inviteMembers() {
-        GroupInvitationMessage groupInvitationMessage = new GroupInvitationMessage(groupName, members.toString());
+    public void inviteMembers() throws NoSuchAlgorithmException {
+        String storageKey = Base64.getEncoder().encodeToString(KeyGenerator.getInstance("AES").generateKey().getEncoded());;
+        GroupInvitationMessage groupInvitationMessage = new GroupInvitationMessage(groupName, members, storageKey);
         for (String member : members) {
             PeerConnection receiver = user.peerConnections.get(member);
             if (receiver != null) {
@@ -127,7 +120,7 @@ public class GroupChatViewUI {
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
         frame.getContentPane().add(backButton, BorderLayout.NORTH);
 
-        for (StorageMessage message : messageRepository.getChatHistory(groupName)) {
+        for (StorageMessage message : MessagesRepository.mr().getChatHistory(groupName)) {
             messageDisplayArea.append(message.sender + ": " + message.message+"\n");
         }
     }
@@ -195,12 +188,11 @@ public class GroupChatViewUI {
             for (String member : members) {
                 PeerConnection receiver = user.peerConnections.get(member);
                 if (receiver != null) {
-                    new Thread(() -> {
-                        receiver.sendMessage(groupMessage.encode());
-                    }).start();
+                    new Thread(() -> receiver.sendMessage(groupMessage.encode())).start();
                 }
             }
-
+            StorageMessage messageToStore = new StorageMessage(groupMessage, user.username);
+            MessagesRepository.mr().addMessage(messageToStore);
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             logger.log(Level.WARNING, "Group message not send");
         }

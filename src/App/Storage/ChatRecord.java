@@ -13,7 +13,7 @@ public class ChatRecord {
 
     public String toStorageString() {
         StringBuilder chatRecord = new StringBuilder(chatId + "@");
-        chatRecord.append(peer);
+        chatRecord.append(peer + "@");
         chatRecord.append(symmetricKey);
         return String.valueOf(chatRecord);
     }

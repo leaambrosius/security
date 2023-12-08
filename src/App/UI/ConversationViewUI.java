@@ -3,7 +3,6 @@ package App.UI;
 import App.Client.Peer;
 import App.Client.PeerConnection;
 import App.Messages.ChatMessage;
-import App.Storage.Message;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
 
@@ -27,20 +26,15 @@ public class ConversationViewUI {
     private JTextField messageInputField;
     private JButton sendButton;
     private JButton backButton;
-    private MessagesRepository messageRepository;
-    private String receiverUsername;
-    private DefaultListModel<String> mainModel;
-    private Peer user;
-    private MainScreenUI mainUI;
+    private final String receiverUsername;
+    private final Peer user;
+    private final MainScreenUI mainUI;
 
 
-    public ConversationViewUI(MainScreenUI mainUI, String recipientName, DefaultListModel<String> mainModel, Peer user,MessagesRepository messageRepository) {
-
+    public ConversationViewUI(MainScreenUI mainUI, String recipientName, Peer user) {
         this.mainUI = mainUI;
         this.receiverUsername = recipientName;
-        this.mainModel = mainModel;
         this.user = user;
-        this.messageRepository = messageRepository;
         if (!user.peerConnections.containsKey(receiverUsername)){
             new Thread(() -> user.connectToPeer(receiverUsername)).start();
         }
@@ -49,8 +43,6 @@ public class ConversationViewUI {
 
     private void initialize(String recipientName) {
         frame = new JFrame("Conversation with " + recipientName);
-
-
         frame.setSize(400, 400);
         //MainScreenUI.centerFrameOnScreen(frame);
         frame.setLocation(mainUI.getFrame().getX(), mainUI.getFrame().getY());
@@ -61,25 +53,22 @@ public class ConversationViewUI {
         messageDisplayArea = new JTextArea();
         messageDisplayArea.setEditable(false);
 
-        String chatId = messageRepository.peerToChat.get(recipientName).chatId;
-        for (StorageMessage msg : messageRepository.getChatHistory(chatId)) {
+        String chatId = MessagesRepository.mr().peerToChat.get(recipientName).chatId;
+        for (StorageMessage msg : MessagesRepository.mr().getChatHistory(chatId)) {
             messageDisplayArea.append(msg.sender + ": " + msg.message+"\n");
         }
 
         frame.getContentPane().add(new JScrollPane(messageDisplayArea), BorderLayout.CENTER);
-
         messageInputField = new JTextField();
         frame.getContentPane().add(messageInputField, BorderLayout.SOUTH);
 
         sendButton = new JButton("Send");
-
         backButton = new JButton("Back");
 
         actionlistener();
         keyListener();
 
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
-
         frame.getContentPane().add(backButton, BorderLayout.NORTH);
     }
 
@@ -123,27 +112,13 @@ public class ConversationViewUI {
         mainUI.setVisible(true);
     }
 
-    public void appendUnreadMessages() {
-//        if(mainUI.getUnreadMessages().containsKey(receiverUsername)){
-//            //TODO use this if local/remote storage is not working
-//            //This is needed to show messages unread if we dont have any kind of storage implemented
-//            /*ArrayList<Message> messages = mainUI.getUnreadMessages().get(receiverUsername);
-//            for (int i = 0; i < messages.size(); i++) {
-//                String before = messageDisplayArea.getText();
-//                String msgText = messages.get(i).plaintext;
-//                messageDisplayArea.append(receiverUsername + ": " + messages.get(i).plaintext + "\n");
-//                String after = messageDisplayArea.getText();
-//            }*/
-//            mainUI.deleteStoredUnreadMessages(receiverUsername);
-//        }
-    }
-
     public void setVisible(boolean visible) {
         frame.setVisible(visible);
     }
 
     public void sendMessage() {
         String plaintext = messageInputField.getText();
+        logger.log(Level.INFO, "Sending " + plaintext + " to " + receiverUsername);
         PeerConnection receiver = user.peerConnections.get(receiverUsername);
 
         if (plaintext.isEmpty()) return;
@@ -156,13 +131,12 @@ public class ConversationViewUI {
             messageDisplayArea.append("Me: " + plaintext + "\n");
             messageInputField.setText("");
 
-            String chatId = messageRepository.peerToChat.get(receiverUsername).chatId;
+            String chatId = MessagesRepository.mr().peerToChat.get(receiverUsername).chatId;
             StorageMessage messageToStore = new StorageMessage(message, user.username, chatId);
-            messageRepository.addMessage(messageToStore, chatId);
+            MessagesRepository.mr().addMessage(messageToStore);
 
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             logger.log(Level.WARNING, "Message not send");
-            return;
         }
     }
 

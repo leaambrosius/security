@@ -1,26 +1,20 @@
 package App.Storage;
 
+import App.Client.Peer;
 import App.UI.GroupChatViewUI;
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
+import App.UI.MessageObserver;
+import org.checkerframework.checker.units.qual.A;
 
-import javax.crypto.*;
-import javax.crypto.spec.SecretKeySpec;
-import javax.sql.DataSource;
-import java.io.*;
-import java.security.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class MessagesRepository {
-    private static final int KEY_SIZE = 2048;
-    private static final String SYMMETRIC_ALGORITHM = "AES";
-    private static final String CIPHER_TRANSFORMATION = "RSA/ECB/PKCS1Padding";
-
     // Chat ID -> Messages
     public HashMap<String, ArrayList<StorageMessage>> chatsHistory = new HashMap<>();
     public HashMap<String, ChatRecord> chats = new HashMap<>();
     public HashMap<String, ChatRecord> peerToChat = new HashMap<>();
     public HashMap<String, GroupRecord> groups = new HashMap<>();
+    public HashMap<String, MessageObserver> listeners = new HashMap<>();
 
     private static MessagesRepository messagesRepository; // Singleton instance
 
@@ -49,7 +43,30 @@ public class MessagesRepository {
     public void addMessage(StorageMessage message) {
         if (chatsHistory.containsKey(message.chatId)) {
             chatsHistory.get(message.chatId).add(message);
+
+            MessageObserver o = listeners.get(message.chatId);
+            if (o != null) o.updateMessage(message);
         }
+    }
+
+    public void addMultipleMessages(String chatId, ArrayList<StorageMessage> mList) {
+        ArrayList<StorageMessage> history = chatsHistory.get(chatId);
+        ArrayList<StorageMessage> mergedArray = new ArrayList<>();
+        mergedArray.addAll(history);
+        mergedArray.addAll(mList);
+
+        // Remove duplicates
+        Set<String> uniqueFieldValues = new HashSet<>();
+        ArrayList<StorageMessage> uniqueList = (ArrayList<StorageMessage>) mergedArray.stream()
+                .filter(obj -> uniqueFieldValues.add(obj.messageId))
+                .collect(Collectors.toList());
+
+        // Sort by timestamp
+        uniqueList.sort(Comparator.comparing(StorageMessage::getTimestamp));
+        chatsHistory.put(chatId, uniqueList);
+
+        MessageObserver o = listeners.get(chatId);
+        if (o != null) o.updateAll(uniqueList);
     }
 
     public void addGroup(GroupRecord group) {
@@ -60,12 +77,13 @@ public class MessagesRepository {
         }
     }
 
-    public void addChat(ChatRecord chat) {
+    public void addChat(ChatRecord chat, Peer host) {
         if (!chats.containsKey(chat.chatId)) {
             chats.put(chat.chatId, chat);
             peerToChat.put(chat.peer, chat);
             chatsHistory.put(chat.chatId, new ArrayList<>());
             FileManager.saveContact(chat);
+            host.registerChatToRemote(chat.chatId);
         }
     }
 
@@ -73,23 +91,33 @@ public class MessagesRepository {
         return chatsHistory.getOrDefault(chatId, new ArrayList<>());
     }
 
-    public String getStorageKey(String username) {
-        if (peerToChat.containsKey(username)) {
-            return peerToChat.get(username).symmetricKey;
+    public String getStorageKey(String name) {
+        if (peerToChat.containsKey(name)) {
+            return peerToChat.get(name).symmetricKey;
+        } else if (groups.containsKey(name)) {
+            return groups.get(name).symmetricKey;
         }
         return "";
     }
 
-    public String getGroupStorageKey(String groupName) {
-        if (groups.containsKey(groupName)) {
-            return groups.get(groupName).symmetricKey;
+    public String getStorageKeyByChat(String chatId) {
+        if (chats.containsKey(chatId)) {
+            return chats.get(chatId).symmetricKey;
+        } else if (groups.containsKey(chatId)) {
+            return groups.get(chatId).symmetricKey;
         }
         return "";
     }
 
-    public void encryptAndSendToStorage() {
-//        Set<String> chats = chatRooms.keySet();
-        // TODO
+    public String getChatId(String name) {
+        if (peerToChat.containsKey(name)) {
+            return peerToChat.get(name).chatId;
+        }
+        return null;
+    }
+
+    public void subscribe(MessageObserver o, String chatId) {
+        this.listeners.put(chatId, o);
     }
 
 //    private static byte[] encryptChatRooms(HashMap<String, ArrayList<Message>> chatRooms, PublicKey publicKey)

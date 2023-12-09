@@ -12,6 +12,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
@@ -21,7 +23,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 
-public class GroupChatViewUI {
+public class GroupChatViewUI implements MessageObserver  {
     private static final Logger logger = Logger.getLogger(GroupChatViewUI.class.getName());
 
 
@@ -120,9 +122,25 @@ public class GroupChatViewUI {
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
         frame.getContentPane().add(backButton, BorderLayout.NORTH);
 
+        MessagesRepository.mr().subscribe(this, groupName);
         for (StorageMessage message : MessagesRepository.mr().getChatHistory(groupName)) {
             messageDisplayArea.append(message.sender + ": " + message.message+"\n");
         }
+
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                user.sendMessagesToRemoteServer(groupName);
+                frame.setVisible(false);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ex) {
+                    // do nothing
+                }
+                frame.dispose();
+                System.exit(0);
+            }
+        });
     }
 
     public void keyListener() {
@@ -144,6 +162,7 @@ public class GroupChatViewUI {
     public void actionlistener() {
         sendButton.addActionListener(e -> sendMessage());
         backButton.addActionListener(e -> {
+            user.sendMessagesToRemoteServer(groupName);
             mainUI.closeGroup();
             frame.dispose();
             mainUI.placeFrameInCoordinates(frame.getX(), frame.getY());
@@ -159,27 +178,15 @@ public class GroupChatViewUI {
         mainUI.setVisible(true);
     }
 
-//    public void appendUnreadMessages() {
-//        if(mainUI.getUnreadMessages().containsKey(groupName)){
-//            ArrayList<StorageMessage> messages = mainUI.getUnreadMessages().get(groupName);
-//            for (StorageMessage message : messages) {
-//                messageDisplayArea.append(message.sender + ": " + message.message + "\n");
-//            }
-//            mainUI.deleteStoredUnreadMessages(groupName);
-//        }
-//    }
-
     public void setVisible(boolean visible) {
         frame.setVisible(visible);
     }
 
     public void sendMessage() {
         String plaintext = messageInputField.getText();
+        messageInputField.setText("");
 
         if (plaintext.isEmpty()) return;
-
-        messageDisplayArea.append("Me: " + plaintext + "\n");
-        messageInputField.setText("");
 
         try {
             String signature = user.encryptionManager.signMessage(plaintext);
@@ -199,11 +206,21 @@ public class GroupChatViewUI {
     }
 
     public void showMessageReceived(StorageMessage message) {
-        messageDisplayArea.append(message.sender + ": " + message.message + "\n");
         messageInputField.setText("");
     }
 
     public String getGroupName() {
         return this.groupName;
+    }
+
+    @Override
+    public void updateMessage(StorageMessage m) {
+        messageDisplayArea.append(m.sender + ": " + m.message + "\n");
+    }
+
+    @Override
+    public void updateAll(ArrayList<StorageMessage> mList) {
+        messageDisplayArea.setText("");
+        for (StorageMessage m : mList) messageDisplayArea.append(m.sender + ": " + m.message + "\n");
     }
 }

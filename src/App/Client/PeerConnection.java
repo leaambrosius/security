@@ -2,9 +2,7 @@ package App.Client;
 
 import App.Messages.*;
 import App.Storage.ChatRecord;
-import App.Storage.FileManager;
 import App.Storage.MessagesRepository;
-import App.Storage.StorageMessage;
 import Utils.InvalidMessageException;
 import Utils.MessageListener;
 
@@ -12,8 +10,8 @@ import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.Arrays;
 import java.util.Base64;
@@ -203,7 +201,7 @@ public class PeerConnection {
     public void startConversation() {
         logger.log(Level.INFO, "Started listening for chat messages");
         ChatRecord chat = new ChatRecord(peerData.username, chatId, Base64.getEncoder().encodeToString(storageSymmetricKey.getEncoded()));
-        MessagesRepository.mr().addChat(chat);
+        MessagesRepository.mr().addChat(chat, this.host);
         new Thread(this::listenForMessages).start();
     }
 
@@ -226,11 +224,15 @@ public class PeerConnection {
                     // Ignore socket timeout, and continue listening
                 }
             }
-        } catch (IOException | InvalidKeyException | IllegalBlockSizeException |
-                NoSuchPaddingException | NoSuchAlgorithmException | BadPaddingException | InvalidMessageException e) {
+        } catch (IOException e) {
             //This will make the user close the connection when someone disconnects from the app
             listener.connectionEnded(this);
-            e.printStackTrace();
+            logger.log(Level.INFO, "Peer disconnected");
+        } catch (InvalidKeyException | IllegalBlockSizeException | NoSuchPaddingException
+                | NoSuchAlgorithmException | BadPaddingException | InvalidMessageException e) {
+            listener.connectionEnded(this);
+            logger.log(Level.WARNING, "Failed to receive the message " + e);
+
         }
     }
 

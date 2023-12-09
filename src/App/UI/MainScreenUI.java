@@ -115,6 +115,11 @@ public class MainScreenUI extends JFrame implements MessageListener {
             if (selectedRecipient == null || selectedRecipient.equals("Add User")) {
                 showNewUserPanel();
             } else if (existingGroupChats.contains(selectedRecipient)) {
+                GroupRecord groupRecord = MessagesRepository.mr().groups.get(selectedRecipient);
+                if (groupRecord != null && groupRecord.chatId != null) {
+                    String chatId = groupRecord.chatId;
+                    user.loadMessagesFromRemoteServer(chatId);
+                }
                 openGroupChat(selectedRecipient);
             } else if (selectedRecipient.equals("Create group chat")) {
                 ArrayList<String> membersList = new ArrayList<>();
@@ -127,6 +132,11 @@ public class MainScreenUI extends JFrame implements MessageListener {
                     new SelectGroupChatMembers(this, membersList);
                 });
             } else {
+                ChatRecord chatRecord = MessagesRepository.mr().peerToChat.get(selectedRecipient);
+                if (chatRecord != null && chatRecord.chatId != null) {
+                    String chatId = chatRecord.chatId;
+                    user.loadMessagesFromRemoteServer(chatId);
+                }
                 openConversationView(selectedRecipient);
             }
         });
@@ -145,12 +155,11 @@ public class MainScreenUI extends JFrame implements MessageListener {
         try {
             GroupRecord newGroup = new GroupRecord(members, groupName);
             MessagesRepository.mr().addGroup(newGroup);
+            user.registerChatToRemote(groupName);
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
-
         GroupChatViewUI creatingGroup = new GroupChatViewUI(members, user, groupName);
-
     }
 
     private void showWarning(String message) {
@@ -178,6 +187,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
         addNewContactOrGroup(groupName);
         existingGroupChats.add(groupName);
         groupChatsMembers.put(groupName, members);
+        user.registerChatToRemote(groupName);
         MessagesRepository.mr().addGroup(new GroupRecord(members, groupName, groupStorageKey));
     }
 
@@ -190,12 +200,12 @@ public class MainScreenUI extends JFrame implements MessageListener {
         setVisible(false);
     }
 
-    private void openConversationView(String user) {
-        ConversationViewUI conversationView = new ConversationViewUI(this, user, this.user);
+    private void openConversationView(String peer) {
+        ConversationViewUI conversationView = new ConversationViewUI(this, peer, user);
         activeConversations.add(conversationView);
         conversationView.setVisible(true);
         openedChat = conversationView;
-        UnreadMessagesCellRenderer.readMessage(user);
+        UnreadMessagesCellRenderer.readMessage(peer);
         setVisible(false);
     }
 

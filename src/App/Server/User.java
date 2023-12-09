@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 
 /**Server Side user class**/
 public class User {
-    static java.util.logging.Logger logger = Logger.getLogger(User.class.getName());
+    static Logger logger = Logger.getLogger(User.class.getName());
     private final String username;
     private String ip;
     private String port;
@@ -113,7 +113,7 @@ public class User {
         return publicKey;
     }
 
-    public Boolean getUser(boolean useADdressFromFile) {
+    public Boolean getUser(boolean useAddressFromFile) {
         String fileName = username + ".txt";
         File file = new File(fileName);
 
@@ -124,7 +124,7 @@ public class User {
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] params = line.split("@");
-                if(useADdressFromFile) {
+                if(useAddressFromFile) {
                     ip = params[1];
                     port = params[2];
                 }

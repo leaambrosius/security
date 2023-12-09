@@ -20,6 +20,7 @@ public class ResponseMessage {
     }
 
     public static ResponseMessage fromString(String message) throws InvalidMessageException {
+        if (message == null) throw new InvalidMessageException("Invalid response: null");
         String[] parts = message.split("@");
         if (parts.length == 2 && (parts[1].equals("ACK") || parts[1].equals("NACK"))) {
             return new ResponseMessage(parts[0], parts[1].equals("ACK"));

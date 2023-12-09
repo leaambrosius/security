@@ -12,6 +12,7 @@ import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.*;
 import java.io.*;
+import java.lang.reflect.Array;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.*;
@@ -275,5 +276,10 @@ public class Peer {
         Instant now = Instant.now();
         Instant minuteAgo = now.minusSeconds(60);
         return access != null && access.isAfter(minuteAgo);
+    }
+
+    public void searchForKeyword(String peer, String chatId, String keyword){
+      // TODO
+
     }
 }

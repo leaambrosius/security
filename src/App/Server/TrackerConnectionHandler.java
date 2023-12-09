@@ -44,6 +44,7 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 case "GET_CHAT" -> response = getChatHistory(message);
                 case "REGISTER_CHAT" -> response = registerChatInStorage(message);
                 case "STORE_CHAT" -> response = storeMessagesInStorage(message);
+                case "SEARCH_CHAT" -> response = searchMessage(message);
                 default -> logger.log(Level.WARNING,"Unknown message received: " + message);
             }
 
@@ -213,6 +214,32 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
         } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException | SQLException e) {
             logger.log(Level.WARNING, "Failed to register chat to store " + e);
             return RegisterChatMessage.getNACK();
+        }
+    }
+
+    private String searchMessage(String message) {
+        try {
+            GetChatMessage getChatMessage = GetChatMessage.fromString(message);
+            String username = getChatMessage.getUsername();
+            String chatId = getChatMessage.getChatId();
+            String signature = getChatMessage.getSignature();
+
+            User user = new User(username);
+            if (!user.getUser(true)) {
+                logger.log(Level.WARNING, "Invalid user");
+                return HistoryMessage.getNACK();
+            }
+
+            if (user.verifySignature(signature, chatId + "@" + username) && RemoteStorage.hasUserAccessToChat(username, chatId)) {
+                ArrayList<String> messages = RemoteStorage.getMessagesForKeywordAndChatId(message,chatId);
+                String serializedMessages = String.join("@", messages);
+                HistoryMessage response = new HistoryMessage(chatId, serializedMessages);
+                return response.encode();
+            }
+            return HistoryMessage.getNACK();
+        } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException | SQLException e) {
+            logger.log(Level.WARNING, "Failed to get messages from store " + e);
+            return HistoryMessage.getNACK();
         }
     }
 }

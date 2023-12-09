@@ -1,6 +1,11 @@
 package App.UI;
 import App.Client.Peer;
+import App.Messages.ChatMessage;
+import App.Messages.SearchChatMessage;
+import App.Storage.Message;
 import App.Storage.MessagesRepository;
+import App.Storage.StorageMessage;
+import opennlp.tools.stemmer.PorterStemmer;
 
 import javax.swing.*;
 import java.awt.*;
@@ -39,23 +44,15 @@ public class SearchChatUI {
         JButton backButton = new JButton("Back");
         resultList = new JTextArea(10, 30);
 
-        searchButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                performSearch();
-            }
-        });
+        searchButton.addActionListener(e -> performSearch());
 
-        backButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int x = frame.getX();
-                int y = frame.getY();
-                frame.dispose();
-                ConversationViewUI newFrame = new ConversationViewUI(mainUI,recipientName,user,x,y);
-                newFrame.setVisible(true);
+        backButton.addActionListener(e -> {
+            int x = frame.getX();
+            int y = frame.getY();
+            frame.dispose();
+            ConversationViewUI newFrame = new ConversationViewUI(mainUI,recipientName,user,x,y);
+            newFrame.setVisible(true);
 
-            }
         });
 
         JPanel panel = new JPanel();
@@ -73,11 +70,17 @@ public class SearchChatUI {
 
     private void performSearch() {
         String query = searchField.getText();
-        resultList.setText("Search Results for: " + query);
 
-        //TODO search for the words entered
+        PorterStemmer porterStemmer = new PorterStemmer();
+        String stem = porterStemmer.stem(query);
+
+        String chatId = MessagesRepository.mr().getChatId(recipientName);
+
+        // TODO stem needs to be encrypted, I'm not sure how
+        SearchChatMessage message = new SearchChatMessage(recipientName,chatId,stem);
+        //TODO search for the words entered and display the entrie message
+
+        resultList.setText("Search Results for: " + stem);
     }
-
-
 
 }

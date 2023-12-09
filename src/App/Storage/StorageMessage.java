@@ -83,4 +83,8 @@ public class StorageMessage implements Serializable {
         }
         return null;
     }
+
+    public String getTimestamp() {
+        return timestamp;
+    }
 }

@@ -130,9 +130,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
                 ChatRecord chatRecord = MessagesRepository.mr().peerToChat.get(selectedRecipient);
                 if (chatRecord != null && chatRecord.chatId != null) {
                     String chatId = chatRecord.chatId;
-                    ArrayList<StorageMessage> history = MessagesRepository.mr().chatsHistory.get(chatId);
-                    String timestamp = history.size() > 0 ? history.get(history.size()-1).timestamp : "0";
-                    user.loadMessagesFromRemoteServer(chatId, timestamp);
+                    user.loadMessagesFromRemoteServer(chatId);
                 }
                 openConversationView(selectedRecipient);
             }

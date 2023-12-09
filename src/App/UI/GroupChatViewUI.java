@@ -199,4 +199,10 @@ public class GroupChatViewUI implements MessageObserver  {
     public void updateMessage(StorageMessage m) {
         messageDisplayArea.append(m.sender + ": " + m.message + "\n");
     }
+
+    @Override
+    public void updateAll(ArrayList<StorageMessage> mList) {
+        messageDisplayArea.setText("");
+        for (StorageMessage m : mList) messageDisplayArea.append(m.sender + ": " + m.message + "\n");
+    }
 }

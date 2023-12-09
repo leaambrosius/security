@@ -34,14 +34,13 @@ public class RemoteStorage {
         return false;
     }
 
-    public static ArrayList<String> getChatMessages(String chatId, String lastTimestamp) throws SQLException {
+    public static ArrayList<String> getChatMessages(String chatId) throws SQLException {
         ArrayList<String> messages = new ArrayList<>();
-        String query = "SELECT * FROM messages WHERE chat_id = ? AND timestamp > ? ORDER BY timestamp";
+        String query = "SELECT * FROM messages WHERE chat_id = ? ORDER BY timestamp";
         Connection connection = CloudConnectionPoolFactory.getConnection();
 
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, chatId);
-            statement.setString(2, lastTimestamp);
             ResultSet resultSet = statement.executeQuery();
             while (resultSet.next()) {
                 String messageId = resultSet.getString("message_id");

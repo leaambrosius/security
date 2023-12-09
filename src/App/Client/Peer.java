@@ -146,17 +146,18 @@ public class Peer {
         });
     }
 
-    public void loadMessagesFromRemoteServer(String chatId, String lastTimestamp) {
+    public void loadMessagesFromRemoteServer(String chatId) {
         if (wasAccessedWithinMinute(lastReadData)) return;
 
         lastReadData = Instant.now();
         executorService.submit(() -> {
             try {
                 String signature = encryptionManager.signMessage(chatId + "@" + username);
-                GetChatMessage getChatMessage = new GetChatMessage(username, chatId, signature, lastTimestamp);
+                GetChatMessage getChatMessage = new GetChatMessage(username, chatId, signature);
                 String serverResponse = sendToServer(getChatMessage.encode());
                 HistoryMessage historyMessage = HistoryMessage.fromString(serverResponse);
                 ArrayList<String> serializedMessages = historyMessage.getSerializedDataList();
+                ArrayList<StorageMessage> messages = new ArrayList<>();
 
                 for (String m : serializedMessages) {
                     StorageMessage storageMessage = StorageMessage.deserialize(m);
@@ -168,10 +169,11 @@ public class Peer {
                     }
 
                     storageMessage.decrypt(encryptionManager, secretKey);
-                    MessagesRepository.mr().addMessage(storageMessage);
+                    messages.add(storageMessage);
                 }
+                MessagesRepository.mr().addMultipleMessages(chatId, messages);
             } catch (NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException | IOException | InvalidKeyException | SignatureException | InvalidMessageException | ClassNotFoundException e) {
-                logger.log(Level.WARNING, "Failed to fetch chat history");
+                logger.log(Level.WARNING, "Failed to fetch chat history " + e);
             }
         });
     }

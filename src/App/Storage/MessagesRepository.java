@@ -3,8 +3,10 @@ package App.Storage;
 import App.Client.Peer;
 import App.UI.GroupChatViewUI;
 import App.UI.MessageObserver;
+import org.checkerframework.checker.units.qual.A;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class MessagesRepository {
     // Chat ID -> Messages
@@ -41,8 +43,30 @@ public class MessagesRepository {
     public void addMessage(StorageMessage message) {
         if (chatsHistory.containsKey(message.chatId)) {
             chatsHistory.get(message.chatId).add(message);
-            listeners.get(message.chatId).updateMessage(message);
+
+            MessageObserver o = listeners.get(message.chatId);
+            if (o != null) o.updateMessage(message);
         }
+    }
+
+    public void addMultipleMessages(String chatId, ArrayList<StorageMessage> mList) {
+        ArrayList<StorageMessage> history = chatsHistory.get(chatId);
+        ArrayList<StorageMessage> mergedArray = new ArrayList<>();
+        mergedArray.addAll(history);
+        mergedArray.addAll(mList);
+
+        // Remove duplicates
+        Set<String> uniqueFieldValues = new HashSet<>();
+        ArrayList<StorageMessage> uniqueList = (ArrayList<StorageMessage>) mergedArray.stream()
+                .filter(obj -> uniqueFieldValues.add(obj.messageId))
+                .collect(Collectors.toList());
+
+        // Sort by timestamp
+        uniqueList.sort(Comparator.comparing(StorageMessage::getTimestamp));
+        chatsHistory.put(chatId, uniqueList);
+
+        MessageObserver o = listeners.get(chatId);
+        if (o != null) o.updateAll(uniqueList);
     }
 
     public void addGroup(GroupRecord group) {

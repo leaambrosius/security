@@ -135,6 +135,8 @@ public class ConversationViewUI implements MessageObserver {
 
     public void sendMessage() {
         String plaintext = messageInputField.getText();
+        messageInputField.setText("");
+
         logger.log(Level.INFO, "Sending " + plaintext + " to " + receiverUsername);
         PeerConnection receiver = user.peerConnections.get(receiverUsername);
 
@@ -143,14 +145,11 @@ public class ConversationViewUI implements MessageObserver {
         try {
             String signature = user.encryptionManager.signMessage(plaintext);
             ChatMessage message = new ChatMessage(signature, plaintext);
-            new Thread(() -> receiver.sendMessage(message.encode())).start();
-
-            messageInputField.setText("");
-
             String chatId = MessagesRepository.mr().getChatId(receiverUsername);
             StorageMessage messageToStore = new StorageMessage(message, user.username, chatId);
             MessagesRepository.mr().addMessage(messageToStore);
 
+            new Thread(() -> receiver.sendMessage(message.encode())).start();
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             logger.log(Level.WARNING, "Message not send");
         }
@@ -169,5 +168,11 @@ public class ConversationViewUI implements MessageObserver {
     @Override
     public void updateMessage(StorageMessage m) {
         messageDisplayArea.append(m.sender + ": " + m.message + "\n");
+    }
+
+    @Override
+    public void updateAll(ArrayList<StorageMessage> mList) {
+        messageDisplayArea.setText("");
+        for (StorageMessage m : mList) messageDisplayArea.append(m.sender + ": " + m.message + "\n");
     }
 }

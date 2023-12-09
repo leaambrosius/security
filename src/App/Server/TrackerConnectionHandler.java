@@ -140,7 +140,6 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
             String username = getChatMessage.getUsername();
             String chatId = getChatMessage.getChatId();
             String signature = getChatMessage.getSignature();
-            String timestamp = getChatMessage.getLastTimestamp();
 
             User user = new User(username);
             if (!user.getUser(true)) {
@@ -149,7 +148,7 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
             }
 
             if (user.verifySignature(signature, chatId + "@" + username) && RemoteStorage.hasUserAccessToChat(username, chatId)) {
-                ArrayList<String> messages = RemoteStorage.getChatMessages(chatId, timestamp);
+                ArrayList<String> messages = RemoteStorage.getChatMessages(chatId);
                 String serializedMessages = String.join("@", messages);
                 HistoryMessage response = new HistoryMessage(chatId, serializedMessages);
                 return response.encode();

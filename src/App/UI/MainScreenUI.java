@@ -202,7 +202,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     }
 
     private void openConversationView(String peer) {
-        ConversationViewUI conversationView = new ConversationViewUI(this, peer, user);
+        ConversationViewUI conversationView = new ConversationViewUI(this, peer, user, null, null);
         activeConversations.add(conversationView);
         conversationView.setVisible(true);
         openedChat = conversationView;

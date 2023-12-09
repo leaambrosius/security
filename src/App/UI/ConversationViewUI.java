@@ -6,6 +6,7 @@ import App.Messages.ChatMessage;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
 
+import javax.annotation.Nullable;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -34,22 +35,26 @@ public class ConversationViewUI implements MessageObserver {
     private final Peer user;
     private final MainScreenUI mainUI;
 
-    public ConversationViewUI(MainScreenUI mainUI, String recipientName, Peer user) {
+    public ConversationViewUI(MainScreenUI mainUI, String recipientName, Peer user, @Nullable Integer x, @Nullable Integer y) {
         this.mainUI = mainUI;
         this.receiverUsername = recipientName;
         this.user = user;
         if (!user.peerConnections.containsKey(receiverUsername)){
             new Thread(() -> user.connectToPeer(receiverUsername)).start();
         }
-        initialize(recipientName);
+        initialize(recipientName,x,y);
     }
 
-    private void initialize(String recipientName) {
+
+    private void initialize(String recipientName, Integer x, Integer y) {
         frame = new JFrame("Conversation with " + recipientName);
         frame.setSize(400, 400);
         //MainScreenUI.centerFrameOnScreen(frame);
-        frame.setLocation(mainUI.getFrame().getX(), mainUI.getFrame().getY());
-
+        if (x==null){
+            frame.setLocation(mainUI.getFrame().getX(), mainUI.getFrame().getY());
+        } else {
+            frame.setLocation(x, y);
+        }
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         frame.getContentPane().setLayout(new BorderLayout());
 
@@ -73,9 +78,14 @@ public class ConversationViewUI implements MessageObserver {
         actionlistener();
         keyListener();
 
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new FlowLayout());
+        buttonPanel.add(backButton);
+        buttonPanel.add(searchButton);
+
+        frame.add(buttonPanel,BorderLayout.NORTH);
+
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
-        frame.getContentPane().add(backButton, BorderLayout.NORTH);
-        frame.getContentPane().add(searchButton, BorderLayout.NORTH);
 
         frame.addWindowListener(new WindowAdapter() {
             @Override
@@ -91,6 +101,8 @@ public class ConversationViewUI implements MessageObserver {
                 System.exit(0);
             }
         });
+
+        System.out.println("conv " +frame.getSize());
     }
 
     public void keyListener() {
@@ -124,7 +136,11 @@ public class ConversationViewUI implements MessageObserver {
             mainUI.setVisible(true);
         });
         searchButton.addActionListener(e -> {
-            SearchChatUI searchChatUI = new SearchChatUI(receiverUsername, user);
+            String chatId = MessagesRepository.mr().getChatId(receiverUsername);
+            user.sendMessagesToRemoteServer(chatId);
+            mainUI.closeChat();
+            frame.dispose();
+            SearchChatUI searchChatUI = new SearchChatUI(frame,mainUI,receiverUsername, user);
         });
     }
 

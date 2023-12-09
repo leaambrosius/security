@@ -7,19 +7,37 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-public class SearchChatUI extends JFrame {
-
+public class SearchChatUI {
+    private final MainScreenUI mainUI;
+    private JFrame frame;
     private JTextField searchField;
     private JTextArea resultList;
+    String recipientName;
+    Peer user;
+    JFrame convFrame;
 
-    public SearchChatUI(String recipientName, Peer user) {
-        setTitle("Search Chat UI");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    public SearchChatUI(JFrame convFrame,MainScreenUI mainUI, String recipientName, Peer user) {
+        this.convFrame = convFrame;
+        this.mainUI = mainUI;
+        this.recipientName = recipientName;
+        this.user = user;
+        init();
+    }
 
-        searchField = new JTextField(20);
+    private void init() {
+        frame = new JFrame("Search in Chat with: " + recipientName);
+        frame.setSize(400, 400);
+
+
+        //MainScreenUI.centerFrameOnScreen(frame);
+        frame.setLocation(convFrame.getX(), convFrame.getY());
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.getContentPane().setLayout(new BorderLayout());
+
+        searchField = new JTextField(15);
         JButton searchButton = new JButton("Search");
         JButton backButton = new JButton("Back");
-        resultList = new JTextArea(10, 40);
+        resultList = new JTextArea(10, 30);
 
         searchButton.addActionListener(new ActionListener() {
             @Override
@@ -31,6 +49,11 @@ public class SearchChatUI extends JFrame {
         backButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                int x = frame.getX();
+                int y = frame.getY();
+                frame.dispose();
+                ConversationViewUI newFrame = new ConversationViewUI(mainUI,recipientName,user,x,y);
+                newFrame.setVisible(true);
 
             }
         });
@@ -40,17 +63,19 @@ public class SearchChatUI extends JFrame {
         panel.add(searchField);
         panel.add(searchButton);
         panel.add(backButton);
-        add(panel, BorderLayout.NORTH);
-        add(new JScrollPane(resultList), BorderLayout.CENTER);
+        frame.add(panel, BorderLayout.NORTH);
+        frame.add(new JScrollPane(resultList), BorderLayout.CENTER);
 
-        pack();
-        setLocationRelativeTo(null);
-        setVisible(true);
+        frame.setVisible(true);
+
+        System.out.println("search " +frame.getSize());
     }
 
     private void performSearch() {
         String query = searchField.getText();
         resultList.setText("Search Results for: " + query);
+
+        //TODO search for the words entered
     }
 
 

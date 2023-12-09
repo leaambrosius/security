@@ -153,6 +153,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
         groupChatsMembers.put(groupName, members);
 
         try {
+            // only creator
             GroupRecord newGroup = new GroupRecord(members, groupName);
             MessagesRepository.mr().addGroup(newGroup);
             user.registerChatToRemote(groupName);
@@ -166,7 +167,6 @@ public class MainScreenUI extends JFrame implements MessageListener {
         JOptionPane.showMessageDialog(cardPanel, message);
     }
 
-
     private boolean invalidGroupName(String groupName) {
         if(groupChatsMembers.containsKey(groupName)) {
             return true;
@@ -179,14 +179,14 @@ public class MainScreenUI extends JFrame implements MessageListener {
         return false;
     }
 
-
     //Used when creating a new group chat
-    public void addGroupChat(String groupName, ArrayList<String> members, String groupStorageKey) {
+    private void addGroupChat(String groupName, ArrayList<String> members, String groupStorageKey) {
         //TODO check if group name is not equal to any user name or any group
 
         addNewContactOrGroup(groupName);
         existingGroupChats.add(groupName);
         groupChatsMembers.put(groupName, members);
+        // only invitation
         user.registerChatToRemote(groupName);
         MessagesRepository.mr().addGroup(new GroupRecord(members, groupName, groupStorageKey));
     }

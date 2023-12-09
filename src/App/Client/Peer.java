@@ -147,7 +147,7 @@ public class Peer {
     }
 
     public void loadMessagesFromRemoteServer(String chatId) {
-        if (wasAccessedWithinMinute(lastReadData)) return;
+        if (wasAccessedWithin10s(lastReadData)) return;
 
         lastReadData = Instant.now();
         executorService.submit(() -> {
@@ -179,7 +179,7 @@ public class Peer {
     }
 
     public void sendMessagesToRemoteServer(String chatId) {
-        if (wasAccessedWithinMinute(lastStoreData)) return;
+        if (wasAccessedWithin10s(lastStoreData)) return;
 
         lastStoreData = Instant.now();
         executorService.submit(() -> {
@@ -271,9 +271,9 @@ public class Peer {
         this.listener = listener;
     }
 
-    private boolean wasAccessedWithinMinute(Instant access) {
+    private boolean wasAccessedWithin10s(Instant access) {
         Instant now = Instant.now();
-        Instant minuteAgo = now.minusSeconds(60);
+        Instant minuteAgo = now.minusSeconds(10);
         return access != null && access.isAfter(minuteAgo);
     }
 }

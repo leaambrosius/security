@@ -45,10 +45,8 @@ public class SelectGroupChatMembers extends JFrame {
     }
 
     private void initialize() {
-
         setTitle("Input Window");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-
 
         groupName = new JTextField(20);
         members = new JTextField(20);
@@ -58,7 +56,7 @@ public class SelectGroupChatMembers extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String userInput1 = groupName.getText();
-                //String userInput2 = members.getText();
+                // String userInput2 = members.getText();
                 //String selectedOption = (String) dropdown.getSelectedItem();
                 java.util.List<String> selectedOptions = itemList.getSelectedValuesList();
                 if(userInput1 != null /*&& userInput2 != null*/ && !userInput1.isEmpty()/*&& !userInput2.isEmpty()*/) {
@@ -73,17 +71,6 @@ public class SelectGroupChatMembers extends JFrame {
 
         itemList = new JList<>(listModel);
         itemList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-
-        //If this is active when you press left mouse click + CTRL you will select multiple users.
-        //Just uncomment if you want to see what happens
-        /*itemList.addListSelectionListener(new ListSelectionListener() {
-            @Override
-            public void valueChanged(ListSelectionEvent e) {
-                if (!e.getValueIsAdjusting()) {
-                    itemList.setSelectionInterval(itemList.getMinSelectionIndex(), itemList.getMaxSelectionIndex());
-                }
-            }
-        });*/
 
         JPanel panel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();

@@ -21,6 +21,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     private JPanel mainPanel;
     private CardLayout cardLayout;
     private JList<String> conversationsList;
+
     private JButton startConversationButton;
     private final List<ConversationViewUI> activeConversations;
     private final Peer user;
@@ -247,7 +248,10 @@ public class MainScreenUI extends JFrame implements MessageListener {
 
     public void newUser(JTextField textField) {
         String inputText = textField.getText();
-        if (!checkNewUser(inputText) || !isNewUser(inputText)) {
+        if (inputText.equals(user.username)){
+            showWarning("Peername and Username can not be the same!");
+            return;
+        } else if (!checkNewUser(inputText) || !isNewUser(inputText)) {
             cardPanel.remove(cardPanel.getComponentCount() - 1);
             showWarning("User not found!");
             return; //TODO handle error trying to find user in server

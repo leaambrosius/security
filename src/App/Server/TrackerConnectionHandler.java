@@ -5,7 +5,6 @@ import App.Storage.RemoteStorage;
 import App.Storage.StorageMessage;
 import Utils.InvalidMessageException;
 import Utils.PublicKeyUtils;
-import org.checkerframework.checker.units.qual.A;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -181,7 +180,6 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 ArrayList<StorageMessage> storageMessages = new ArrayList<>();
 
                 for (String m : messages) {
-                    StorageMessage des = StorageMessage.deserialize(m);
                     storageMessages.add(StorageMessage.deserialize(m));
                 }
                 RemoteStorage.insertMessages(storageMessages);

@@ -12,6 +12,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
@@ -124,6 +126,21 @@ public class GroupChatViewUI implements MessageObserver  {
         for (StorageMessage message : MessagesRepository.mr().getChatHistory(groupName)) {
             messageDisplayArea.append(message.sender + ": " + message.message+"\n");
         }
+
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                user.sendMessagesToRemoteServer(groupName);
+                frame.setVisible(false);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ex) {
+                    // do nothing
+                }
+                frame.dispose();
+                System.exit(0);
+            }
+        });
     }
 
     public void keyListener() {
@@ -145,6 +162,7 @@ public class GroupChatViewUI implements MessageObserver  {
     public void actionlistener() {
         sendButton.addActionListener(e -> sendMessage());
         backButton.addActionListener(e -> {
+            user.sendMessagesToRemoteServer(groupName);
             mainUI.closeGroup();
             frame.dispose();
             mainUI.placeFrameInCoordinates(frame.getX(), frame.getY());

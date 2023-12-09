@@ -115,6 +115,11 @@ public class MainScreenUI extends JFrame implements MessageListener {
             if (selectedRecipient == null || selectedRecipient.equals("Add User")) {
                 showNewUserPanel();
             } else if (existingGroupChats.contains(selectedRecipient)) {
+                GroupRecord groupRecord = MessagesRepository.mr().groups.get(selectedRecipient);
+                if (groupRecord != null && groupRecord.chatId != null) {
+                    String chatId = groupRecord.chatId;
+                    user.loadMessagesFromRemoteServer(chatId);
+                }
                 openGroupChat(selectedRecipient);
             } else if (selectedRecipient.equals("Create group chat")) {
                 ArrayList<String> membersList = new ArrayList<>();

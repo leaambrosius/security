@@ -1,6 +1,7 @@
 package App;
 
 import App.Client.Peer;
+import App.Storage.StorageMessage;
 import App.UI.MainScreenUI;
 import App.UI.UsernameSubmitUI;
 

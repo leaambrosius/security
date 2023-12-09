@@ -50,6 +50,8 @@ public class MessagesRepository {
 
     public void addMessage(StorageMessage message) {
         if (chatsHistory.containsKey(message.chatId)) {
+            ArrayList<StorageMessage> history = chatsHistory.get(message.chatId);
+
             chatsHistory.get(message.chatId).add(message);
         }
     }

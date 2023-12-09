@@ -51,9 +51,10 @@ public class StorageMessage implements Serializable {
         this.sender = sender;
     }
 
-    public void encrypt(EncryptionManager em, SecretKey storageKey) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeyException {
-        this.message = em.encryptWithSymmetricKey(this.message, storageKey);
-        this.sender = em.encryptWithSymmetricKey(this.sender, storageKey);
+    public StorageMessage encrypted(EncryptionManager em, SecretKey storageKey) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeyException {
+        String encMessage = em.encryptWithSymmetricKey(this.message, storageKey);
+        String encryptedSender = em.encryptWithSymmetricKey(this.sender, storageKey);
+        return new StorageMessage(messageId, timestamp, encryptedSender, chatId, encMessage, signature);
     }
 
     public void decrypt(EncryptionManager em, SecretKey storageKey) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeyException {

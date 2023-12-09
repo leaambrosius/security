@@ -41,6 +41,7 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 case "REGISTER" -> response = registerUser(message, clientIP);
                 case "LOGIN" -> response = login(message, clientIP);
                 case "PEER_DISCOVER" -> response = getUserAddress(message);
+
                 case "GET_CHAT" -> response = getChatHistory(message);
                 case "REGISTER_CHAT" -> response = registerChatInStorage(message);
                 case "STORE_CHAT" -> response = storeMessagesInStorage(message);
@@ -139,6 +140,7 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
             String username = getChatMessage.getUsername();
             String chatId = getChatMessage.getChatId();
             String signature = getChatMessage.getSignature();
+            String timestamp = getChatMessage.getLastTimestamp();
 
             User user = new User(username);
             if (!user.getUser(true)) {
@@ -147,14 +149,14 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
             }
 
             if (user.verifySignature(signature, chatId + "@" + username) && RemoteStorage.hasUserAccessToChat(username, chatId)) {
-                ArrayList<String> messages = RemoteStorage.getChatMessages(chatId);
+                ArrayList<String> messages = RemoteStorage.getChatMessages(chatId, timestamp);
                 String serializedMessages = String.join("@", messages);
                 HistoryMessage response = new HistoryMessage(chatId, serializedMessages);
                 return response.encode();
             }
             return HistoryMessage.getNACK();
         } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException e) {
-            logger.log(Level.WARNING, "Received invalid get chat message");
+            logger.log(Level.WARNING, "Received invalid get chat message " + e);
             return HistoryMessage.getNACK();
         }
     }
@@ -180,6 +182,9 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 ArrayList<StorageMessage> storageMessages = new ArrayList<>();
 
                 for (String m : messages) {
+                    System.out.println("rec " + m);
+                    StorageMessage des = StorageMessage.deserialize(m);
+                    System.out.println("des " + des.sender +" "+ des.chatId +" "+ des.messageId + " " + des.timestamp + " " + des.signature +" "+ des.message);
                     storageMessages.add(StorageMessage.deserialize(m));
                 }
                 RemoteStorage.insertMessages(storageMessages);

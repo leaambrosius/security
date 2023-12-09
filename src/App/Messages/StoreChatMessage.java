@@ -31,7 +31,7 @@ public class StoreChatMessage extends Message {
             this.signature = parts[3];
 
             serializedDataList = new ArrayList<>();
-            serializedDataList.addAll(Arrays.asList(parts).subList(3, parts.length));
+            serializedDataList.addAll(Arrays.asList(parts).subList(4, parts.length));
         } else {
             throw new InvalidMessageException("Bad message format: " + message);
         }

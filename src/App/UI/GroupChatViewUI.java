@@ -21,7 +21,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 
-public class GroupChatViewUI {
+public class GroupChatViewUI implements MessageObserver  {
     private static final Logger logger = Logger.getLogger(GroupChatViewUI.class.getName());
 
 
@@ -120,6 +120,7 @@ public class GroupChatViewUI {
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
         frame.getContentPane().add(backButton, BorderLayout.NORTH);
 
+        MessagesRepository.mr().subscribe(this, groupName);
         for (StorageMessage message : MessagesRepository.mr().getChatHistory(groupName)) {
             messageDisplayArea.append(message.sender + ": " + message.message+"\n");
         }
@@ -159,27 +160,15 @@ public class GroupChatViewUI {
         mainUI.setVisible(true);
     }
 
-//    public void appendUnreadMessages() {
-//        if(mainUI.getUnreadMessages().containsKey(groupName)){
-//            ArrayList<StorageMessage> messages = mainUI.getUnreadMessages().get(groupName);
-//            for (StorageMessage message : messages) {
-//                messageDisplayArea.append(message.sender + ": " + message.message + "\n");
-//            }
-//            mainUI.deleteStoredUnreadMessages(groupName);
-//        }
-//    }
-
     public void setVisible(boolean visible) {
         frame.setVisible(visible);
     }
 
     public void sendMessage() {
         String plaintext = messageInputField.getText();
+        messageInputField.setText("");
 
         if (plaintext.isEmpty()) return;
-
-        messageDisplayArea.append("Me: " + plaintext + "\n");
-        messageInputField.setText("");
 
         try {
             String signature = user.encryptionManager.signMessage(plaintext);
@@ -199,11 +188,15 @@ public class GroupChatViewUI {
     }
 
     public void showMessageReceived(StorageMessage message) {
-        messageDisplayArea.append(message.sender + ": " + message.message + "\n");
         messageInputField.setText("");
     }
 
     public String getGroupName() {
         return this.groupName;
+    }
+
+    @Override
+    public void updateMessage(StorageMessage m) {
+        messageDisplayArea.append(m.sender + ": " + m.message + "\n");
     }
 }

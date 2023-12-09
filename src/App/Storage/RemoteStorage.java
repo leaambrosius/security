@@ -12,13 +12,12 @@ import java.util.logging.Logger;
 public class RemoteStorage {
     static Logger logger = Logger.getLogger(RemoteStorage.class.getName());
 
-    public static boolean hasUserAccessToChat(String username, String chatId) {
+    public static boolean hasUserAccessToChat(String username, String chatId) throws SQLException {
         String query = "SELECT COUNT(*) AS user_exists FROM chats WHERE chat_id = ? AND username = ?";
+        Connection connection = CloudConnectionPoolFactory.getConnection();
 
         // Create PreparedStatement
-        try {
-            Connection connection = CloudConnectionPoolFactory.getConnection();
-            PreparedStatement statement = connection.prepareStatement(query);
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, chatId);
             statement.setString(2, username);
 
@@ -29,16 +28,18 @@ public class RemoteStorage {
             }
         } catch (SQLException e) {
             logger.log(Level.WARNING, "Failed to execute hasUserAccessToChat query " + e);
+        } finally {
+            connection.close();
         }
         return false;
     }
 
-    public static ArrayList<String> getChatMessages(String chatId, String lastTimestamp)  {
+    public static ArrayList<String> getChatMessages(String chatId, String lastTimestamp) throws SQLException {
         ArrayList<String> messages = new ArrayList<>();
         String query = "SELECT * FROM messages WHERE chat_id = ? AND timestamp > ? ORDER BY timestamp";
-        try {
-            Connection connection = CloudConnectionPoolFactory.getConnection();
-            PreparedStatement statement = connection.prepareStatement(query);
+        Connection connection = CloudConnectionPoolFactory.getConnection();
+
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, chatId);
             statement.setString(2, lastTimestamp);
             ResultSet resultSet = statement.executeQuery();
@@ -53,21 +54,23 @@ public class RemoteStorage {
             }
         } catch (SQLException | IOException e) {
             logger.log(Level.WARNING, "Failed to execute getChatMessages query");
+        } finally {
+            connection.close();
         }
         return messages;
     }
 
-    public static void insertChat(String chatId, String username) {
-        try {
-            Connection connection = CloudConnectionPoolFactory.getConnection();
-            String query = "INSERT INTO chats (chat_id, username) VALUES (?, ?)";
-            try (PreparedStatement statement = connection.prepareStatement(query)) {
-                statement.setString(1, chatId);
-                statement.setString(2, username);
-                statement.executeUpdate();
-            }
+    public static void insertChat(String chatId, String username) throws SQLException {
+        Connection connection = CloudConnectionPoolFactory.getConnection();
+        String query = "INSERT INTO chats (chat_id, username) VALUES (?, ?)";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, chatId);
+            statement.setString(2, username);
+            statement.executeUpdate();
         } catch (SQLException e) {
             logger.log(Level.WARNING, "Failed to insert chat to remote storage");
+        } finally {
+            connection.close();
         }
     }
 
@@ -86,6 +89,8 @@ public class RemoteStorage {
                 statement.addBatch();
             }
             statement.executeBatch();
+        } finally {
+            connection.close();
         }
     }
 
@@ -110,6 +115,8 @@ public class RemoteStorage {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            connection.close();
         }
         return messages;
     }
@@ -122,6 +129,8 @@ public class RemoteStorage {
             statement.setString(1, keyword);
             statement.setString(2, messageId);
             statement.executeUpdate();
+        } finally {
+            connection.close();
         }
     }
 }

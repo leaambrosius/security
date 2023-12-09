@@ -2,27 +2,17 @@ package App.Storage;
 
 import App.Client.Peer;
 import App.UI.GroupChatViewUI;
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
+import App.UI.MessageObserver;
 
-import javax.crypto.*;
-import javax.crypto.spec.SecretKeySpec;
-import javax.sql.DataSource;
-import java.io.*;
-import java.rmi.Remote;
-import java.security.*;
 import java.util.*;
 
 public class MessagesRepository {
-    private static final int KEY_SIZE = 2048;
-    private static final String SYMMETRIC_ALGORITHM = "AES";
-    private static final String CIPHER_TRANSFORMATION = "RSA/ECB/PKCS1Padding";
-
     // Chat ID -> Messages
     public HashMap<String, ArrayList<StorageMessage>> chatsHistory = new HashMap<>();
     public HashMap<String, ChatRecord> chats = new HashMap<>();
     public HashMap<String, ChatRecord> peerToChat = new HashMap<>();
     public HashMap<String, GroupRecord> groups = new HashMap<>();
+    public HashMap<String, MessageObserver> listeners = new HashMap<>();
 
     private static MessagesRepository messagesRepository; // Singleton instance
 
@@ -50,9 +40,8 @@ public class MessagesRepository {
 
     public void addMessage(StorageMessage message) {
         if (chatsHistory.containsKey(message.chatId)) {
-            ArrayList<StorageMessage> history = chatsHistory.get(message.chatId);
-
             chatsHistory.get(message.chatId).add(message);
+            listeners.get(message.chatId).updateMessage(message);
         }
     }
 
@@ -103,9 +92,8 @@ public class MessagesRepository {
         return null;
     }
 
-    public void encryptAndSendToStorage() {
-//        Set<String> chats = chatRooms.keySet();
-        // TODO
+    public void subscribe(MessageObserver o, String chatId) {
+        this.listeners.put(chatId, o);
     }
 
 //    private static byte[] encryptChatRooms(HashMap<String, ArrayList<Message>> chatRooms, PublicKey publicKey)

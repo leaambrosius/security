@@ -56,7 +56,7 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
             reader.close();
             clientSocket.close();
         } catch (IOException | InvalidMessageException e) {
-            e.printStackTrace();
+            logger.log(Level.WARNING, "Failed to read: " + e);
         }
     }
 
@@ -155,8 +155,8 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 return response.encode();
             }
             return HistoryMessage.getNACK();
-        } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException e) {
-            logger.log(Level.WARNING, "Received invalid get chat message " + e);
+        } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException | SQLException e) {
+            logger.log(Level.WARNING, "Failed to get messages from store " + e);
             return HistoryMessage.getNACK();
         }
     }
@@ -182,9 +182,7 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 ArrayList<StorageMessage> storageMessages = new ArrayList<>();
 
                 for (String m : messages) {
-                    System.out.println("rec " + m);
                     StorageMessage des = StorageMessage.deserialize(m);
-                    System.out.println("des " + des.sender +" "+ des.chatId +" "+ des.messageId + " " + des.timestamp + " " + des.signature +" "+ des.message);
                     storageMessages.add(StorageMessage.deserialize(m));
                 }
                 RemoteStorage.insertMessages(storageMessages);
@@ -193,7 +191,7 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
             logger.log(Level.WARNING, "No access to chat");
             return storeChatMessage.generateNACK();
         } catch (InvalidMessageException | ClassNotFoundException | IOException | SQLException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException e) {
-            logger.log(Level.WARNING, "Received invalid messages to store " + e);
+            logger.log(Level.WARNING, "Failed to store messages in store " + e);
             return StoreChatMessage.getNACK();
         }
     }
@@ -215,8 +213,8 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 return registerChatMessage.generateACK();
             }
             return registerChatMessage.generateNACK();
-        } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException e) {
-            logger.log(Level.WARNING, "Received invalid messages to store");
+        } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException | SQLException e) {
+            logger.log(Level.WARNING, "Failed to register chat to store " + e);
             return RegisterChatMessage.getNACK();
         }
     }

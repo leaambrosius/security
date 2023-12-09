@@ -24,5 +24,28 @@
             <artifactId>maven-compiler-plugin</artifactId>
             <version>3.8.1</version>
         </dependency>
+        <dependency>
+            <!-- This is a utility library that allows us to connect to a Cloud SQL
+            database without having to deal with security measures like IP whitelisting
+            or SSL certificates
+            -->
+            <groupId>com.google.cloud.sql</groupId>
+            <artifactId>postgres-socket-factory</artifactId>
+            <version>1.7.2</version>
+        </dependency>
+        <dependency>
+            <!-- The postgres driver library required to interface with PostgreSQL
+            via JDBC -->
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.1</version>
+        </dependency>
+        <dependency>
+            <!-- HikariCP is used to create and manage connection pools and datasources for
+            JDBC -->
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>5.1.0</version>
+        </dependency>
     </dependencies>
 </project>

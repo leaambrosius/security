@@ -1,7 +1,6 @@
 package App.Server;
 
 import Utils.PublicKeyUtils;
-import org.apache.logging.log4j.LogManager;
 
 import java.io.*;
 import java.security.KeyFactory;
@@ -88,7 +87,7 @@ public class User {
         return true;
     }
 
-    public Boolean verifyMessage(String signatureBase64, String receivedMessage) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, SignatureException {
+    public Boolean verifySignature(String signatureBase64, String receivedMessage) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, SignatureException {
         byte[] publicKeyBytes = publicKey.getEncoded();
 
         Signature signature = Signature.getInstance("SHA256withRSA");

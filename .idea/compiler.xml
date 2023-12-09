@@ -9,5 +9,8 @@
         <module name="CloudCrypto" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="security" target="16" />
+    </bytecodeTargetLevel>
   </component>
 </project>

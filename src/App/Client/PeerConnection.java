@@ -1,8 +1,10 @@
 package App.Client;
 
-import App.Messages.Message;
-import App.Messages.MessageHandler;
-import App.Messages.MessageType;
+import App.Messages.*;
+import App.Storage.ChatRecord;
+import App.Storage.FileManager;
+import App.Storage.MessagesRepository;
+import App.Storage.StorageMessage;
 import Utils.InvalidMessageException;
 import Utils.MessageListener;
 
@@ -19,42 +21,42 @@ import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class PeerConnection{
-    static java.util.logging.Logger logger = Logger.getLogger(PeerConnection.class.getName());
-    private static final MessageHandler messageHandler = new MessageHandler();
+public class PeerConnection {
+    private static final Logger logger = Logger.getLogger(PeerConnection.class.getName());
 
-    private static final int TIMEOUT_SECONDS = 5;
+    private static final int TIMEOUT_MS = 5;
     private final Peer host;
-    private final KeyPair hostKeyPair;
-
-    private PeerData peerData;
     private Socket socket;
-    private SecretKey symmetricKey;
+    private PeerData peerData;
+    private SecretKey sessionSymmetricKey;
+    private SecretKey storageSymmetricKey;
     private MessageListener listener;
+    public String chatId;
 
-    public PeerConnection(Peer host, KeyPair hostKeyPair, PeerData peerData,MessageListener listener) {
+    public PeerConnection(Peer host, PeerData peerData, MessageListener listener) {
         this.host = host;
-        this.hostKeyPair = hostKeyPair;
         this.peerData = peerData;
 
         try {
-            this.socket = new Socket(peerData.address, peerData.port);
+            this.socket = new Socket(peerData.address, Integer.parseInt(peerData.port));
         } catch (IOException e) {
             logger.log(Level.WARNING, "Cannot establish connection to peer");
             listener.userOffline(peerData.username);
-            e.printStackTrace();
         }
     }
 
-    public PeerConnection(Peer host, KeyPair hostKeyPair, Socket socket) {
+    public PeerConnection(Peer host, Socket socket) {
         this.host = host;
-        this.hostKeyPair = hostKeyPair;
         this.socket = socket;
     }
 
-    public void initiateChat() {
-        this.initiateHandshake();
-        this.startConversation();
+    public boolean initiateChat(String username) {
+        if (this.announceToPeer(username)) {
+            this.initiateHandshake();
+            this.startConversation();
+            return true;
+        }
+        return false;
     }
 
     public void acceptChat() {
@@ -63,26 +65,23 @@ public class PeerConnection{
         this.startConversation();
     }
 
-    public void setMessageListener(MessageListener listener) {
-        this.listener = listener;
-    }
-
     public boolean announceToPeer(String username) {
         try {
-            socket.setSoTimeout(TIMEOUT_SECONDS * 1000);
-            String announcement = messageHandler.encodeMessage(new Message(MessageType.PEER_ANNOUNCEMENT,
-                                                                new String[] { username }));
-            String ciphertext = encryptMessageWithPeerPublicKey(announcement);
-            sendToPeer(ciphertext);
+            socket.setSoTimeout(TIMEOUT_MS * 1000);
+            String announcementMessage = new PeerAnnouncementMessage(username).encode();
+            String encryptedMessage = host.encryptionManager.encryptWithPeerPublicKeyToString(announcementMessage, this.peerData.publicKey);
+            sendToPeer(encryptedMessage);
+
             String encryptedResponse = receiveFromPeer();
-            String response = decryptMessageWithPrivateKey(encryptedResponse);
-            Message responseMessage = messageHandler.decodeMessage(response);
-            if (!(responseMessage.getType() == MessageType.PEER_ANNOUNCEMENT) || !responseMessage.isAck()) {
+            String response = host.encryptionManager.decryptWithPrivateKey(encryptedResponse);
+            ResponseMessage responseMessage = ResponseMessage.fromString(response);
+            if (!responseMessage.isType(MessageType.PEER_ANNOUNCEMENT) || !responseMessage.isAck()) {
                 throw new InvalidMessageException(response);
             }
             return true;
-        } catch (IOException | InvalidMessageException e) {
-            e.printStackTrace();
+        } catch (IOException | InvalidMessageException | InvalidKeyException | IllegalBlockSizeException |
+                NoSuchPaddingException | NoSuchAlgorithmException | BadPaddingException e) {
+            logger.log(Level.WARNING, "Peer announcement failed: " + e);
             this.closeConnection();
             return false;
         }
@@ -90,28 +89,27 @@ public class PeerConnection{
 
     public void waitForAnnouncement() {
         try {
-            socket.setSoTimeout(TIMEOUT_SECONDS * 1000);
-            String announcement = receiveFromPeer();
-            String plaintext = decryptMessageWithPrivateKey(announcement);
-            Message responseMessage = messageHandler.decodeMessage(plaintext);
+            socket.setSoTimeout(TIMEOUT_MS * 1000);
+            String announcementMessage = receiveFromPeer();
+            String decryptedAnnouncementMessage =  host.encryptionManager.decryptWithPrivateKey(announcementMessage);
+            PeerAnnouncementMessage responseMessage = PeerAnnouncementMessage.fromString(decryptedAnnouncementMessage);
 
-            if (!(responseMessage.getType() == MessageType.PEER_ANNOUNCEMENT) || !responseMessage.verifyLength(2)) {
-                throw new InvalidMessageException(plaintext);
-            }
+            String peerUsername = responseMessage.getUsername();
+            PeerData receivedPeerData = host.getPeerData(peerUsername);
 
-            String peerUsername = responseMessage.getParts()[1];
-            PeerData peerData = this.host.getPeerData(peerUsername);
+            if (this.verifyPeer(receivedPeerData)) {
+                peerData = receivedPeerData;
+                host.peerConnections.put(peerUsername, this);
 
-            if (this.verifyPeer(peerData)) {
-                this.peerData = peerData;
-                this.host.peerConnections.put(peerUsername, this);
-                String ciphertext = encryptMessageWithPeerPublicKey(messageHandler.generateAck(MessageType.PEER_ANNOUNCEMENT));
-                sendToPeer(ciphertext);
-                logger.log(Level.INFO, "User announcement ack");
+                String ack = responseMessage.generateACK();
+                String encryptedAck = host.encryptionManager.encryptWithPeerPublicKeyToString(ack, peerData.publicKey);
+                sendToPeer(encryptedAck);
+                logger.log(Level.INFO, "User announcement ack: " + peerUsername);
             } else {
                 logger.log(Level.WARNING, "Peer data does not match with server record, connection not accepted");
             }
-        } catch (IOException | InvalidMessageException e) {
+        } catch (IOException | InvalidMessageException | InvalidKeyException | IllegalBlockSizeException |
+                NoSuchPaddingException | NoSuchAlgorithmException | BadPaddingException e) {
             e.printStackTrace();
             this.closeConnection();
         }
@@ -121,134 +119,120 @@ public class PeerConnection{
         try {
             // Generate a symmetric key
             KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-            this.symmetricKey = keyGenerator.generateKey();
+            this.sessionSymmetricKey = keyGenerator.generateKey();
+            String sessionSymmetricKeyString = Base64.getEncoder().encodeToString(sessionSymmetricKey.getEncoded());
+            logger.log(Level.INFO, "Setup session symmetric key: " + Arrays.toString(sessionSymmetricKey.getEncoded()));
 
-            String symmetricKeyString = Base64.getEncoder().encodeToString(this.symmetricKey.getEncoded());
-            logger.log(Level.INFO, "Setup symmetric key " + Arrays.toString(this.symmetricKey.getEncoded()));
+            String previousStorageKey = MessagesRepository.mr().getStorageKey(peerData.username);
+            if (!previousStorageKey.isEmpty()) {
+                byte[] storageKeyBytes = Base64.getDecoder().decode(previousStorageKey);
+                this.storageSymmetricKey = new SecretKeySpec(storageKeyBytes, 0, storageKeyBytes.length, "AES");
+            } else {
+                this.storageSymmetricKey = keyGenerator.generateKey();
+            }
+
+            String storageSymmetricKeyString = Base64.getEncoder().encodeToString(storageSymmetricKey.getEncoded());
+            logger.log(Level.INFO, "Setup storage symmetric key: " + Arrays.toString(storageSymmetricKey.getEncoded()));
+
+            this.chatId = String.valueOf(storageSymmetricKey.hashCode());
+            logger.log(Level.INFO, "Setup chat id: " + this.chatId);
 
             // Send the encrypted symmetric key to the peer
-            Message handshakeAck = new Message(MessageType.HANDSHAKE, new String[] { "ACK", symmetricKeyString });
-            String ciphertext = encryptMessageWithPeerPublicKey(messageHandler.encodeMessage(handshakeAck));
-            sendToPeer(ciphertext);
+            String handshakeMessage = new HandshakeMessage(sessionSymmetricKeyString, storageSymmetricKeyString).encode();
+            String encryptedHandshakeMessage = host.encryptionManager.encryptWithPeerPublicKeyToString(handshakeMessage, peerData.publicKey);
+            sendToPeer(encryptedHandshakeMessage);
 
             // Wait for the acknowledgment from the peer
-            String acknowledgment = decryptMessageWithPrivateKey(receiveFromPeer());
-            Message handshakeResponse = messageHandler.decodeMessage(acknowledgment);
+            String response = host.encryptionManager.decryptWithPrivateKey(receiveFromPeer());
+            ResponseMessage responseMessage = ResponseMessage.fromString(response);
 
-            if (!handshakeResponse.isAck()) {
-                throw new InvalidMessageException(acknowledgment);
+            if (!responseMessage.isAck()) {
+                throw new InvalidMessageException(response);
             }
             logger.log(Level.INFO, "Handshake initiation completed. Received ack");
 
-        } catch (NoSuchAlgorithmException | IOException | InvalidMessageException e) {
-            logger.log(Level.WARNING, "Handshake initiation timeout. No acknowledgment received");
+        } catch (IOException | InvalidMessageException | InvalidKeyException | IllegalBlockSizeException |
+                NoSuchPaddingException | NoSuchAlgorithmException | BadPaddingException e) {
+            logger.log(Level.WARNING, "Handshake initiation failed");
             this.closeConnection();
-            e.printStackTrace();
         }
     }
 
     public void acceptHandshake() {
         try {
             // Wait for the peer's encrypted symmetric key
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            String encryptedMessage = in.readLine();
-            String decryptedMessage = decryptMessageWithPrivateKey(encryptedMessage);
-            Message message = messageHandler.decodeMessage(decryptedMessage);
+            String encryptedMessage = receiveFromPeer();
+            String decryptedMessage = host.encryptionManager.decryptWithPrivateKey(encryptedMessage);
+            HandshakeMessage handshakeMessage = HandshakeMessage.fromString(decryptedMessage);
 
-            if (!message.verifyLength(3) || !message.isAck()) {
-                throw new InvalidMessageException(decryptedMessage);
-            }
+            // Reconstruct the symmetric keys
+            String decryptedSessionSymmetricKeyString = handshakeMessage.getSessionSymmetricKey();
+            byte[] symmetricKeyBytes = Base64.getDecoder().decode(decryptedSessionSymmetricKeyString);
+            this.sessionSymmetricKey = new SecretKeySpec(symmetricKeyBytes, 0, symmetricKeyBytes.length, "AES");
+            logger.log(Level.INFO, "Symmetric key " + Arrays.toString(sessionSymmetricKey.getEncoded()));
 
-            // Reconstruct the symmetric key
-            String decryptedSymmetricKeyString = message.getParts()[2];
-            byte[] symmetricKeyBytes = Base64.getDecoder().decode(decryptedSymmetricKeyString);
-            this.symmetricKey = new SecretKeySpec(symmetricKeyBytes, 0, symmetricKeyBytes.length, "AES");
-            logger.log(Level.INFO, "Symmetric key " + Arrays.toString(this.symmetricKey.getEncoded()));
+            String decryptedStorageSymmetricKeyString = handshakeMessage.getStorageSymmetricKey();
+            symmetricKeyBytes = Base64.getDecoder().decode(decryptedStorageSymmetricKeyString);
+            this.storageSymmetricKey = new SecretKeySpec(symmetricKeyBytes, 0, symmetricKeyBytes.length, "AES");
+            this.chatId = String.valueOf(storageSymmetricKey.hashCode());
+            logger.log(Level.INFO, "Storage key " + Arrays.toString(storageSymmetricKey.getEncoded()));
+            logger.log(Level.INFO, "Chat ID " + this.chatId);
+
+            this.chatId = String.valueOf(storageSymmetricKey.hashCode());
 
             // Send acknowledgment to the peer
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            String handshakeAck = messageHandler.generateAck(MessageType.HANDSHAKE);
-            out.println(encryptMessageWithPeerPublicKey(handshakeAck));
-
-        } catch (IOException | InvalidMessageException e) {
+            String handshakeAck = handshakeMessage.generateACK();
+            String encryptedAck = host.encryptionManager.encryptWithPeerPublicKeyToString(handshakeAck, peerData.publicKey);
+            sendToPeer(encryptedAck);
+        } catch (IOException | InvalidMessageException | InvalidKeyException | IllegalBlockSizeException |
+                NoSuchPaddingException | NoSuchAlgorithmException | BadPaddingException e) {
             this.closeConnection();
-            e.printStackTrace();
+            logger.log(Level.WARNING, "Handshake initiation failed");
         }
     }
 
     public void sendMessage(String plaintext) {
         try {
-            String ciphertext = encryptMessageWithSymmetricKey(plaintext);
+            String ciphertext = host.encryptionManager.encryptWithSymmetricKey(plaintext, sessionSymmetricKey);
             sendToPeer(ciphertext);
-
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.log(Level.WARNING, "Sending message to peer failed");
         }
-    }
-
-    private byte[] encryptMessageWithPeerPublicKey(byte[] plaintextBytes) {
-        try {
-            Cipher cipher = Cipher.getInstance("RSA");
-            cipher.init(Cipher.ENCRYPT_MODE, peerData.publicKey);
-            return cipher.doFinal(plaintextBytes);
-
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
-            e.printStackTrace();
-        }
-        return new byte[] {};
-    }
-
-    private String encryptMessageWithPeerPublicKey(String plaintext) {
-        byte[] plaintextBytes = plaintext.getBytes();
-        byte[] encryptedBytes = encryptMessageWithPeerPublicKey(plaintextBytes);
-        return Base64.getEncoder().encodeToString(encryptedBytes);
-    }
-
-    private String decryptMessageWithPrivateKey(String ciphertext) {
-        byte[] encryptedBytes = Base64.getDecoder().decode(ciphertext);
-        try {
-            Cipher cipher = Cipher.getInstance("RSA");
-            cipher.init(Cipher.DECRYPT_MODE, hostKeyPair.getPrivate());
-            return new String(cipher.doFinal(encryptedBytes));
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    private String encryptMessageWithSymmetricKey(String plaintext) {
-        try {
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(Cipher.ENCRYPT_MODE, symmetricKey);
-
-            byte[] encryptedBytes = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(encryptedBytes);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
-                IllegalBlockSizeException | BadPaddingException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    private String decryptMessageWithSymmetricKey(String ciphertext) {
-        try {
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(Cipher.DECRYPT_MODE, symmetricKey);
-
-            byte[] encryptedBytes = Base64.getDecoder().decode(ciphertext);
-            return new String(cipher.doFinal(encryptedBytes), StandardCharsets.UTF_8);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
-                IllegalBlockSizeException | BadPaddingException e) {
-            e.printStackTrace();
-        }
-        return null;
     }
 
     public void startConversation() {
+        logger.log(Level.INFO, "Started listening for chat messages");
+        ChatRecord chat = new ChatRecord(peerData.username, chatId, Base64.getEncoder().encodeToString(storageSymmetricKey.getEncoded()));
+        MessagesRepository.mr().addChat(chat);
         new Thread(this::listenForMessages).start();
-        sendMessages();
     }
 
+    private void listenForMessages() {
+        try {
+            socket.setSoTimeout(TIMEOUT_MS * 1000);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            while (true) {
+                try {
+                    String encryptedMessage = in.readLine();
+                    if (encryptedMessage != null) {
+                        String decryptedMessage = host.encryptionManager.decryptWithSymmetricKey(encryptedMessage, sessionSymmetricKey);
+                        Message messageReceived = parseMessage(decryptedMessage);
+                        if(listener != null) {
+                            listener.messageReceived(messageReceived, peerData.username);
+                        }
+                        logger.log(Level.INFO, peerData.username + "(" + socket.getInetAddress() + ":" + socket.getPort() +"): " + decryptedMessage + " received on (" + this.socket.getLocalAddress() + ":" + this.socket.getLocalPort() + ")");
+                    }
+                } catch (SocketTimeoutException e) {
+                    // Ignore socket timeout, and continue listening
+                }
+            }
+        } catch (IOException | InvalidKeyException | IllegalBlockSizeException |
+                NoSuchPaddingException | NoSuchAlgorithmException | BadPaddingException | InvalidMessageException e) {
+            //This will make the user close the connection when someone disconnects from the app
+            listener.connectionEnded(this);
+            e.printStackTrace();
+        }
+    }
 
     private void sendToPeer(String data) throws IOException {
         PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -263,52 +247,6 @@ public class PeerConnection{
         return msg;
     }
 
-    private void listenForMessages() {
-        try {
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            socket.setSoTimeout(TIMEOUT_SECONDS * 1000);
-            logger.log(Level.INFO, "Started listening for chat messages");
-            while (true) {
-                try {
-                    String encryptedMessage = in.readLine();
-
-                    if (encryptedMessage != null) {
-                        String decryptedMessage = this.decryptMessageWithSymmetricKey(encryptedMessage);
-                        logger.log(Level.INFO, this.peerData.username + "(" + this.socket.getInetAddress() + ":" + this.socket.getPort() +"): " + decryptedMessage + " received on (" + this.socket.getLocalAddress() + ":" + this.socket.getLocalPort() + ")");
-                        Message messageReceived = messageHandler.decodeMessage(decryptedMessage);
-                        if(listener != null) {
-                            listener.messageReceived(messageReceived,this.peerData.username);
-                        }
-                    }
-                } catch (SocketTimeoutException e) {
-                    // Ignore socket timeout, and continue listening
-                }
-            }
-        } catch (IOException e) {
-            //This will make the user close the connection when someone disconnects from the app
-            listener.connectionEnded(this);
-            e.printStackTrace();
-        }
-    }
-
-    private void sendMessages() {
-        try {
-            BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            String input;
-
-            while ((input = userInput.readLine()) != null) {
-                String encryptedMessage = encryptMessageWithSymmetricKey(input);
-                logger.log(Level.INFO, "$(" + this.socket.getLocalAddress() + ":" + this.socket.getLocalPort() + ") to " + (this.peerData != null ? this.peerData.username : "unknown") + "(" + socket.getInetAddress() + ":" + socket.getPort() + "): " + input);
-                out.println(encryptedMessage);
-            }
-            closeConnection();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     public void closeConnection() {
         try {
             socket.close();
@@ -321,4 +259,22 @@ public class PeerConnection{
         return Objects.equals(socket.getInetAddress().toString().replace("/", ""), peerData.address);
     }
 
+    public void setMessageListener(MessageListener listener) {
+        this.listener = listener;
+    }
+
+    public Message parseMessage(String encodedMessage) throws InvalidMessageException {
+        String[] parts = encodedMessage.split("@");
+        String messageType = parts[0];
+
+        return switch (messageType) {
+            case "MESSAGE" -> ChatMessage.fromString(encodedMessage);
+            case "GROUP_MESSAGE" -> GroupMessage.fromString(encodedMessage);
+            case "GROUP_INVITATION" -> GroupInvitationMessage.fromString(encodedMessage);
+            default -> {
+                logger.log(Level.WARNING, "Unknown message type: " + messageType);
+                yield null;
+            }
+        };
+    }
 }

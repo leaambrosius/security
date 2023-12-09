@@ -34,6 +34,8 @@ public class ConversationViewUI implements MessageObserver {
     private final Peer user;
     private final MainScreenUI mainUI;
 
+    private boolean subscribeLater = false;
+
     public ConversationViewUI(MainScreenUI mainUI, String recipientName, Peer user) {
         this.mainUI = mainUI;
         this.receiverUsername = recipientName;
@@ -56,6 +58,9 @@ public class ConversationViewUI implements MessageObserver {
         messageDisplayArea = new JTextArea();
         messageDisplayArea.setEditable(false);
         String chatId = MessagesRepository.mr().getChatId(recipientName);
+        if(chatId == null) {
+            subscribeLater = true;
+        }
         MessagesRepository.mr().subscribe(this, chatId);
         for (StorageMessage m : MessagesRepository.mr().getChatHistory(chatId)) updateMessage(m);
 
@@ -146,6 +151,9 @@ public class ConversationViewUI implements MessageObserver {
             String signature = user.encryptionManager.signMessage(plaintext);
             ChatMessage message = new ChatMessage(signature, plaintext);
             String chatId = MessagesRepository.mr().getChatId(receiverUsername);
+            if(subscribeLater) {
+                MessagesRepository.mr().subscribe(this, chatId);
+            }
             StorageMessage messageToStore = new StorageMessage(message, user.username, chatId);
             MessagesRepository.mr().addMessage(messageToStore);
 

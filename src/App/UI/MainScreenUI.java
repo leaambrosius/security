@@ -350,11 +350,11 @@ public class MainScreenUI extends JFrame implements MessageListener {
             throw new RuntimeException(e);
         }
         if (openedChat != null) {
-            openedChat.close();
+            //openedChat.close();
             showWarning(user + " is offline!");
         }
         if (openedGroup != null) {
-            openedGroup.close();
+            //openedGroup.close();
             //showWarning(user + " is offline!");
         }
     }

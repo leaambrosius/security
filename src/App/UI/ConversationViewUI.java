@@ -3,7 +3,6 @@ package App.UI;
 import App.Client.Peer;
 import App.Client.PeerConnection;
 import App.Messages.ChatMessage;
-import App.Storage.ChatRecord;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
 
@@ -29,6 +28,7 @@ public class ConversationViewUI implements MessageObserver {
     private JTextArea messageDisplayArea;
     private JTextField messageInputField;
     private JButton sendButton;
+    private JButton searchButton;
     private JButton backButton;
     private final String receiverUsername;
     private final Peer user;
@@ -66,12 +66,16 @@ public class ConversationViewUI implements MessageObserver {
 
         sendButton = new JButton("Send");
         backButton = new JButton("Back");
+        searchButton = new JButton("Search");
+
+
 
         actionlistener();
         keyListener();
 
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
         frame.getContentPane().add(backButton, BorderLayout.NORTH);
+        frame.getContentPane().add(searchButton, BorderLayout.NORTH);
 
         frame.addWindowListener(new WindowAdapter() {
             @Override
@@ -119,7 +123,9 @@ public class ConversationViewUI implements MessageObserver {
             mainUI.placeFrameInCoordinates(frame.getX(),frame.getY());
             mainUI.setVisible(true);
         });
-
+        searchButton.addActionListener(e -> {
+            SearchChatUI searchChatUI = new SearchChatUI(receiverUsername, user);
+        });
     }
 
     public void close() {

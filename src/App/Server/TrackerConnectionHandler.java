@@ -1,8 +1,11 @@
 package App.Server;
 
 import App.Messages.*;
+import App.Storage.RemoteStorage;
+import App.Storage.StorageMessage;
 import Utils.InvalidMessageException;
 import Utils.PublicKeyUtils;
+import org.checkerframework.checker.units.qual.A;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -11,6 +14,8 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,6 +41,9 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 case "REGISTER" -> response = registerUser(message, clientIP);
                 case "LOGIN" -> response = login(message, clientIP);
                 case "PEER_DISCOVER" -> response = getUserAddress(message);
+                case "GET_CHAT" -> response = getChatHistory(message);
+                case "REGISTER_CHAT" -> response = registerChatInStorage(message);
+                case "STORE_CHAT" -> response = storeMessagesInStorage(message);
                 default -> logger.log(Level.WARNING,"Unknown message received: " + message);
             }
 
@@ -123,5 +131,88 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
         if (parts.length > 0) return parts[0];
 
         throw new InvalidMessageException("Invalid message type");
+    }
+
+    private String getChatHistory(String message) {
+        try {
+            GetChatMessage getChatMessage = GetChatMessage.fromString(message);
+            String username = getChatMessage.getUsername();
+            String chatId = getChatMessage.getChatId();
+            String signature = getChatMessage.getSignature();
+
+            User user = new User(username);
+            if (!user.getUser(true)) {
+                logger.log(Level.WARNING, "Invalid user");
+                return HistoryMessage.getNACK();
+            }
+
+            if (user.verifySignature(signature, chatId + "@" + username) && RemoteStorage.hasUserAccessToChat(username, chatId)) {
+                ArrayList<String> messages = RemoteStorage.getChatMessages(chatId);
+                String serializedMessages = String.join("@", messages);
+                HistoryMessage response = new HistoryMessage(chatId, serializedMessages);
+                return response.encode();
+            }
+            return HistoryMessage.getNACK();
+        } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+            logger.log(Level.WARNING, "Received invalid get chat message");
+            return HistoryMessage.getNACK();
+        }
+    }
+
+    private String storeMessagesInStorage(String message) {
+        try {
+            StoreChatMessage storeChatMessage = StoreChatMessage.fromString(message);
+            String username = storeChatMessage.getUsername();
+            String chatId = storeChatMessage.getChatId();
+            String signature = storeChatMessage.getSignature();
+            ArrayList<String> messages = storeChatMessage.getSerializedDataList();
+
+            User user = new User(username);
+            if (!user.getUser(true)) {
+                logger.log(Level.WARNING, "Invalid user");
+                return storeChatMessage.generateNACK();
+            }
+            if (!user.verifySignature(signature, chatId + "@" + username)) {
+                logger.log(Level.WARNING, "Invalid signature");
+                return storeChatMessage.generateNACK();
+            }
+            if (RemoteStorage.hasUserAccessToChat(username, chatId)) {
+                ArrayList<StorageMessage> storageMessages = new ArrayList<>();
+
+                for (String m : messages) {
+                    storageMessages.add(StorageMessage.deserialize(m));
+                }
+                RemoteStorage.insertMessages(storageMessages);
+                return storeChatMessage.generateACK();
+            }
+            logger.log(Level.WARNING, "No access to chat");
+            return storeChatMessage.generateNACK();
+        } catch (InvalidMessageException | ClassNotFoundException | IOException | SQLException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+            logger.log(Level.WARNING, "Received invalid messages to store " + e);
+            return StoreChatMessage.getNACK();
+        }
+    }
+
+    private String registerChatInStorage(String message) {
+        try {
+            RegisterChatMessage registerChatMessage = RegisterChatMessage.fromString(message);
+            String username = registerChatMessage.getUsername();
+            String chatId = registerChatMessage.getChatId();
+            String signature = registerChatMessage.getSignature();
+
+            User user = new User(username);
+            if (!user.getUser(true)) {
+                logger.log(Level.WARNING, "Invalid user");
+                return registerChatMessage.generateNACK();
+            }
+            if (user.verifySignature(signature, chatId + "@" + username)) {
+                RemoteStorage.insertChat(chatId, username);
+                return registerChatMessage.generateACK();
+            }
+            return registerChatMessage.generateNACK();
+        } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+            logger.log(Level.WARNING, "Received invalid messages to store");
+            return RegisterChatMessage.getNACK();
+        }
     }
 }

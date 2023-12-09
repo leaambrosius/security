@@ -3,6 +3,7 @@ package App.UI;
 import App.Client.Peer;
 import App.Client.PeerConnection;
 import App.Messages.ChatMessage;
+import App.Storage.ChatRecord;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
 
@@ -30,7 +31,6 @@ public class ConversationViewUI {
     private final Peer user;
     private final MainScreenUI mainUI;
 
-
     public ConversationViewUI(MainScreenUI mainUI, String recipientName, Peer user) {
         this.mainUI = mainUI;
         this.receiverUsername = recipientName;
@@ -53,7 +53,7 @@ public class ConversationViewUI {
         messageDisplayArea = new JTextArea();
         messageDisplayArea.setEditable(false);
 
-        String chatId = MessagesRepository.mr().peerToChat.get(recipientName).chatId;
+        String chatId = MessagesRepository.mr().getChatId(recipientName);
         for (StorageMessage msg : MessagesRepository.mr().getChatHistory(chatId)) {
             messageDisplayArea.append(msg.sender + ": " + msg.message+"\n");
         }
@@ -70,6 +70,7 @@ public class ConversationViewUI {
 
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
         frame.getContentPane().add(backButton, BorderLayout.NORTH);
+
     }
 
     public void keyListener() {
@@ -93,10 +94,10 @@ public class ConversationViewUI {
     }
 
     public void actionlistener() {
-
         sendButton.addActionListener(e -> sendMessage());
-
         backButton.addActionListener(e -> {
+            String chatId = MessagesRepository.mr().getChatId(receiverUsername);
+            user.sendMessagesToRemoteServer(chatId);
             mainUI.closeChat();
             frame.dispose();
             mainUI.placeFrameInCoordinates(frame.getX(),frame.getY());
@@ -131,7 +132,7 @@ public class ConversationViewUI {
             messageDisplayArea.append("Me: " + plaintext + "\n");
             messageInputField.setText("");
 
-            String chatId = MessagesRepository.mr().peerToChat.get(receiverUsername).chatId;
+            String chatId = MessagesRepository.mr().getChatId(receiverUsername);
             StorageMessage messageToStore = new StorageMessage(message, user.username, chatId);
             MessagesRepository.mr().addMessage(messageToStore);
 

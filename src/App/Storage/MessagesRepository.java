@@ -1,5 +1,6 @@
 package App.Storage;
 
+import App.Client.Peer;
 import App.UI.GroupChatViewUI;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -8,6 +9,7 @@ import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
 import javax.sql.DataSource;
 import java.io.*;
+import java.rmi.Remote;
 import java.security.*;
 import java.util.*;
 
@@ -60,12 +62,13 @@ public class MessagesRepository {
         }
     }
 
-    public void addChat(ChatRecord chat) {
+    public void addChat(ChatRecord chat, Peer host) {
         if (!chats.containsKey(chat.chatId)) {
             chats.put(chat.chatId, chat);
             peerToChat.put(chat.peer, chat);
             chatsHistory.put(chat.chatId, new ArrayList<>());
             FileManager.saveContact(chat);
+            host.registerChatToRemote(chat.chatId);
         }
     }
 
@@ -73,18 +76,29 @@ public class MessagesRepository {
         return chatsHistory.getOrDefault(chatId, new ArrayList<>());
     }
 
-    public String getStorageKey(String username) {
-        if (peerToChat.containsKey(username)) {
-            return peerToChat.get(username).symmetricKey;
+    public String getStorageKey(String name) {
+        if (peerToChat.containsKey(name)) {
+            return peerToChat.get(name).symmetricKey;
+        } else if (groups.containsKey(name)) {
+            return groups.get(name).symmetricKey;
         }
         return "";
     }
 
-    public String getGroupStorageKey(String groupName) {
-        if (groups.containsKey(groupName)) {
-            return groups.get(groupName).symmetricKey;
+    public String getStorageKeyByChat(String chatId) {
+        if (chats.containsKey(chatId)) {
+            return chats.get(chatId).symmetricKey;
+        } else if (groups.containsKey(chatId)) {
+            return groups.get(chatId).symmetricKey;
         }
         return "";
+    }
+
+    public String getChatId(String name) {
+        if (peerToChat.containsKey(name)) {
+            return peerToChat.get(name).chatId;
+        }
+        return null;
     }
 
     public void encryptAndSendToStorage() {

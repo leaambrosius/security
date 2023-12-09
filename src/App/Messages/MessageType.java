@@ -8,6 +8,7 @@ public enum MessageType {
     PEER_DATA,
 
     GET_CHAT,
+    HISTORY,
     REGISTER_CHAT,
     STORE_CHAT,
     SEARCH_CHAT,

@@ -20,7 +20,7 @@ public class GroupRecord {
         this.members = members;
         this.chatId = chatId;
 
-        String key = MessagesRepository.mr().getGroupStorageKey(chatId);
+        String key = MessagesRepository.mr().getStorageKey(chatId);
         if (key.isEmpty()) {
             this.symmetricKey = Base64.getEncoder().encodeToString(KeyGenerator.getInstance("AES").generateKey().getEncoded());
         } else {

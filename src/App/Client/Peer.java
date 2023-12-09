@@ -2,10 +2,14 @@ package App.Client;
 
 import App.Messages.*;
 import App.Storage.KeyRepository;
+import App.Storage.MessagesRepository;
+import App.Storage.StorageMessage;
 import Utils.InvalidMessageException;
 import Utils.MessageListener;
 import Utils.PublicKeyUtils;
 
+import javax.crypto.*;
+import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.*;
 import java.io.*;
 import java.net.ServerSocket;
@@ -13,6 +17,7 @@ import java.net.Socket;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.logging.Level;
@@ -117,6 +122,72 @@ public class Peer {
         }
     }
 
+    public void registerChatToRemote(String chatId) {
+        try {
+            String signature = encryptionManager.signMessage(chatId + "@" + username);
+            RegisterChatMessage registerChatMessage = new RegisterChatMessage(username, chatId, signature);
+            String serverResponse = sendToServer(registerChatMessage.encode());
+
+            ResponseMessage response = ResponseMessage.fromString(serverResponse);
+            if (response.isAck()) logger.log(Level.INFO, "Chat registered remotely successfully");
+            else logger.log(Level.WARNING, "Failed to register chat remotely");
+
+        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException | InvalidMessageException e) {
+            logger.log(Level.WARNING, "Failed to register chat remotely " + e);
+        }
+    }
+
+    public void loadMessagesFromRemoteServer(String chatId) {
+        try {
+            String signature = encryptionManager.signMessage(chatId + "@" + username);
+            GetChatMessage getChatMessage = new GetChatMessage(username, chatId, signature);
+            String serverResponse = sendToServer(getChatMessage.encode());
+            HistoryMessage historyMessage = HistoryMessage.fromString(serverResponse);
+            ArrayList<String> serializedMessages = historyMessage.getSerializedDataList();
+
+            for (String m : serializedMessages) {
+                StorageMessage storageMessage = StorageMessage.deserialize(m);
+                SecretKey secretKey = getStorageKeyByChat(chatId);
+
+                if (secretKey == null || storageMessage == null) {
+                    logger.log(Level.WARNING, "Invalid key or remote message");
+                    return;
+                }
+
+                storageMessage.decrypt(encryptionManager, secretKey);
+                MessagesRepository.mr().addMessage(storageMessage);
+            }
+        } catch (NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException | IOException | InvalidKeyException | SignatureException | InvalidMessageException | ClassNotFoundException e) {
+            logger.log(Level.WARNING, "Failed to fetch chat history");
+        }
+    }
+
+    public void sendMessagesToRemoteServer(String chatId) {
+        ArrayList<StorageMessage> storageMessages = MessagesRepository.mr().getChatHistory(chatId);
+        ArrayList<String> serializedMessages = new ArrayList<>();
+        SecretKey secretKey = getStorageKeyByChat(chatId);
+        if (secretKey == null) {
+            logger.log(Level.WARNING, "Invalid storage key");
+        }
+        try {
+            for (StorageMessage message : storageMessages) {
+                message.encrypt(encryptionManager, secretKey);
+                serializedMessages.add(message.serialize());
+            }
+
+            String signature = encryptionManager.signMessage(chatId + "@" + username);
+            StoreChatMessage storeChatMessage = new StoreChatMessage(username, chatId, signature, serializedMessages);
+            String serverResponse = sendToServer(storeChatMessage.encode());
+
+            ResponseMessage response = ResponseMessage.fromString(serverResponse);
+            if (response.isAck()) logger.log(Level.INFO, "Messages stored remotely successfully");
+            else logger.log(Level.WARNING, "Failed to store messages remotely");
+
+        } catch (NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException | IOException | InvalidKeyException | SignatureException | InvalidMessageException e) {
+            logger.log(Level.WARNING, "Failed to send chat history " + e);
+        }
+    }
+
     private String sendToServer(String encodedMessage) {
         try {
             SSLSocket socket = encryptionManager.getSSLSocket(serverIP, serverPort);
@@ -132,6 +203,14 @@ public class Peer {
             logger.log(Level.SEVERE, "Message not send to server: " + encodedMessage);
             return null;
         }
+    }
+
+    private SecretKey getStorageKeyByChat(String chatId) {
+        String key = MessagesRepository.mr().getStorageKeyByChat(chatId);
+        if (key == null) return null;
+        logger.log(Level.INFO, "storage key " + key);
+        byte[] keyBytes = Base64.getDecoder().decode(key);
+        return new SecretKeySpec(keyBytes, 0, keyBytes.length, "AES");
     }
 
     private void openConnectableSocket() throws IOException {

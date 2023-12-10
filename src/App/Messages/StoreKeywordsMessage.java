@@ -27,14 +27,14 @@ public class StoreKeywordsMessage extends Message {
 
     public void decode(String message) throws InvalidMessageException {
         String[] parts = message.split("@");
-        if (parts.length > 4 && parts[0].equals(type.toString())) {
+        if (parts.length > 5 && parts[0].equals(type.toString())) {
             this.username = parts[1];
             this.chatId = parts[2];
             this.signature = parts[3];
             this.messageId = parts[4];
 
             serializedDataList = new ArrayList<>();
-            serializedDataList.addAll(Arrays.asList(parts).subList(4, parts.length));
+            serializedDataList.addAll(Arrays.asList(parts).subList(5, parts.length));
         } else {
             throw new InvalidMessageException("Bad message format: " + message);
         }

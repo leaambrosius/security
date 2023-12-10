@@ -113,17 +113,22 @@ public class RemoteStorage {
         return messages;
     }
 
-    public static void insertKeywordMessage(String keyword, String messageId) throws SQLException {
+    public static void insertKeywordMessages(ArrayList<String> keywords, String messageId) throws SQLException {
         Connection connection = CloudConnectionPoolFactory.getConnection();
 
         String query = "INSERT INTO keywords (keyword, message_id) VALUES (?, ?) ON CONFLICT (keyword, message_id) DO NOTHING";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
-            statement.setString(1, keyword);
-            statement.setString(2, messageId);
-            statement.executeUpdate();
+            for (String keyword : keywords) {
+                statement.setString(1, keyword);
+                statement.setString(2, messageId);
+                statement.addBatch();
+            }
+            statement.executeBatch();
+
         } finally {
             connection.close();
         }
+
     }
 }
 

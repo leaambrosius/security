@@ -19,7 +19,6 @@ public class App {
         }
         SwingUtilities.invokeLater(UsernameSubmitUI::new);
     }
-    // TODO handle nacks
 
     public static void runMainUI(String username) {
         try {

@@ -115,10 +115,8 @@ public class MessagesRepository {
         Set<String> storedIds = remoteStored.getOrDefault(chatId, new HashSet<>());
         for (StorageMessage m : storedHistory) {
             storedIds.add(m.messageId);
-            System.out.println("Storing " + m.messageId);
         }
     }
-
     public String getStorageKey(String name) {
         if (peerToChat.containsKey(name)) {
             return peerToChat.get(name).symmetricKey;

@@ -28,12 +28,6 @@ import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * TODO clean up debug println
- * TODO multiple peers
- * TODO closing sockets
- * TODO refactor, passing host to PeerConnection is meh, we should have separate classes
- */
 
 public class Peer {
     private ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -186,7 +180,6 @@ public class Peer {
         lastStoreData = Instant.now();
         executorService.submit(() -> {
             ArrayList<StorageMessage> storageMessages = MessagesRepository.mr().getChatHistoryForRemote(chatId);
-            System.out.println(storageMessages);
             ArrayList<String> serializedMessages = new ArrayList<>();
             SecretKey secretKey = getStorageKeyByChat(chatId);
             if (secretKey == null) {

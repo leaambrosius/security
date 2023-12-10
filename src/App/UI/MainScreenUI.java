@@ -49,25 +49,19 @@ public class MainScreenUI extends JFrame implements MessageListener {
         cardLayout = new CardLayout();
         cardPanel = new JPanel(cardLayout);
         mainPanel = new JPanel();
-
         mainPanel.setLayout(new BorderLayout());
 
-        //TODO delete test users
-        //conversationsList = new JList<>(new String[]{"Add User","Create group chat", "D", "Username 2", "Username 3", "Username 4", "Username 41", "Username 42", "Username 43", "Username 44", "Username 45", "Username 46", "Username 47", "Username 48", "Username 49", "Username 411"});
         getContactsList();
         conversationsList.setCellRenderer(new UnreadMessagesCellRenderer());
         if (currentModel != null) {
             conversationsList.setModel(currentModel);
         }
         mainPanel.add(new JScrollPane(conversationsList), BorderLayout.CENTER);
-
         startConversationButton = new JButton("Select");
 
         actionListener();
 
         mainPanel.add(startConversationButton, BorderLayout.SOUTH);
-
-
         cardPanel.add(mainPanel, "mainPanel");
         frame.getContentPane().add(cardPanel);
     }
@@ -182,8 +176,6 @@ public class MainScreenUI extends JFrame implements MessageListener {
 
     //Used when creating a new group chat
     private void addGroupChat(String groupName, ArrayList<String> members, String groupStorageKey) {
-        //TODO check if group name is not equal to any user name or any group
-
         addNewContactOrGroup(groupName);
         existingGroupChats.add(groupName);
         groupChatsMembers.put(groupName, members);
@@ -254,7 +246,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
         } else if (!checkNewUser(inputText) || !isNewUser(inputText)) {
             cardPanel.remove(cardPanel.getComponentCount() - 1);
             showWarning("User not found!");
-            return; //TODO handle error trying to find user in server
+            return;
         }
         cardPanel.remove(cardPanel.getComponentCount() - 1);
         addNewContactOrGroup(inputText);

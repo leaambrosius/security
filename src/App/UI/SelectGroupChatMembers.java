@@ -30,7 +30,6 @@ public class SelectGroupChatMembers extends JFrame {
     }
 
     private void getUsers(ArrayList<String> conversationsList) {
-        //TODO ERROR -> group chat window -> submit with null input
         for (int i = 0; i < conversationsList.size(); i++) {
             String username = conversationsList.get(i);
             if(!username.equals("Add User") && ! username.equals("Create group chat")) {
@@ -41,7 +40,6 @@ public class SelectGroupChatMembers extends JFrame {
         for (String user : users) {
             listModel.addElement(user);
         }
-        //dropdown = new JComboBox<String>(users.toArray(new String[0]));
     }
 
     private void initialize() {
@@ -106,20 +104,5 @@ public class SelectGroupChatMembers extends JFrame {
         pack();
         setLocationRelativeTo(null); // Center the window
         setVisible(true);
-
-        //TODO working but ugly
-        /*JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(3, 1));
-        JLabel label1 = new JLabel("Group name:");
-        JLabel label2 = new JLabel("Add members:");
-        panel.add(label1);
-        panel.add(groupName);
-        panel.add(label2);
-        panel.add(new JScrollPane(itemList));
-        panel.add(submitButton);
-        add(panel);
-        pack();
-        setLocationRelativeTo(null);
-        setVisible(true);*/
     }
 }

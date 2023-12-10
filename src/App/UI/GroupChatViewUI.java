@@ -56,7 +56,6 @@ public class GroupChatViewUI implements MessageObserver  {
         this.groupName = groupName;
 
         openSocketsWithGroupMembers();
-        //TODO find a better way to wait for handshake and then invite members
         try {
             Thread.sleep(1000);
             inviteMembers();
@@ -71,7 +70,6 @@ public class GroupChatViewUI implements MessageObserver  {
         for (String member : members) {
             PeerConnection receiver = user.peerConnections.get(member);
             if (receiver != null) {
-                // TODO do we need new thread for each?
                 new Thread(() -> {
                     receiver.sendMessage(groupInvitationMessage.encode());
                 }).start();
@@ -96,7 +94,6 @@ public class GroupChatViewUI implements MessageObserver  {
     }
 
     private void initialize(Integer x, Integer y) {
-        //TODO change the this to group name and maybe add a option to see group members
         frame = new JFrame("Group with " + groupChatDisplayMessage());
 
 

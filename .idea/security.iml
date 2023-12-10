@@ -101,6 +101,6 @@
     <orderEntry type="library" name="Maven: org.checkerframework:checker-qual:3.41.0" level="project" />
     <orderEntry type="library" name="Maven: com.zaxxer:HikariCP:5.1.0" level="project" />
     <orderEntry type="library" name="Maven: org.slf4j:slf4j-api:1.7.36" level="project" />
-    <orderEntry type="library" name="Maven: org.apache.opennlp:opennlp-tools:1.9.0" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.opennlp:opennlp-tools:2.1.1" level="project" />
   </component>
 </module>

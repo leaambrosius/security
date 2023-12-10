@@ -1,6 +1,5 @@
 package App.SearchableEncryption;
 
-import App.Client.Peer;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
 import App.UI.MessageObserver;

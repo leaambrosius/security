@@ -214,6 +214,23 @@ public class Peer {
 
     private void sendKeywords(StorageMessage m) {
         ArrayList<String> keywords = SearchingManager.getKeywords(m.message);
+        executorService.submit(() -> {
+            ArrayList<String> serializedMessages = new ArrayList<>();
+
+            try {
+                String encodedKeywords = String.join("@", keywords);
+                String signature = encryptionManager.signMessage(m.chatId + "@" + username + "@" + m.messageId + "@" + encodedKeywords);
+                StoreKeywordsMessage storeKeywordsMessage = new StoreKeywordsMessage(username, m.chatId, signature, serializedMessages, m.messageId);
+                String serverResponse = sendToServer(storeKeywordsMessage.encode());
+
+                ResponseMessage response = ResponseMessage.fromString(serverResponse);
+                if (response.isAck()) logger.log(Level.INFO, "Keywords stored remotely successfully");
+                else logger.log(Level.WARNING, "Failed to store keywords remotely");
+
+            } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException | InvalidMessageException e) {
+                logger.log(Level.WARNING, "Failed to send keywords history " + e);
+            }
+        });
 
 
     }

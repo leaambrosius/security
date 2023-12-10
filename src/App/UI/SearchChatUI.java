@@ -2,6 +2,7 @@ package App.UI;
 import App.Client.Peer;
 import App.Messages.ChatMessage;
 import App.Messages.SearchChatMessage;
+import App.SearchableEncryption.SearchingManager;
 import App.Storage.Message;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
@@ -11,8 +12,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.ArrayList;
 
-public class SearchChatUI {
+public class SearchChatUI implements MessageObserver {
     private final MainScreenUI mainUI;
     private JFrame frame;
     private JTextField searchField;
@@ -71,16 +73,21 @@ public class SearchChatUI {
     private void performSearch() {
         String query = searchField.getText();
 
-        PorterStemmer porterStemmer = new PorterStemmer();
-        String stem = porterStemmer.stem(query);
+        String stem = SearchingManager.getKeyword(query);
+        resultList.setText("Search Results for: " + stem);
 
         String chatId = MessagesRepository.mr().getChatId(recipientName);
-
-        // TODO stem needs to be encrypted, I'm not sure how
-        SearchChatMessage message = new SearchChatMessage(recipientName,chatId,stem);
-        //TODO search for the words entered and display the entrie message
-
-        resultList.setText("Search Results for: " + stem);
+        user.searchForKeyword(chatId, stem);
+        SearchingManager.subscribe(stem,this);
     }
 
+    @Override
+    public void updateMessage(StorageMessage m) {
+        resultList.append(m.sender + ": " + m.message + "\n");
+    }
+
+    @Override
+    public void updateAll(ArrayList<StorageMessage> mList) {
+        for (StorageMessage m : mList) resultList.append(m.sender + ": " + m.message + "\n");
+    }
 }

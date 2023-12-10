@@ -97,7 +97,7 @@ public class RemoteStorage {
         Connection connection = CloudConnectionPoolFactory.getConnection();
 
         ArrayList<String> messages = new ArrayList<>();
-        String query = "SELECT * FROM messages JOIN keywords ON messages.message_id = keywords.message_id " +
+        String query = "SELECT message_id FROM messages JOIN keywords ON messages.message_id = keywords.message_id " +
                 "WHERE keywords.keyword = ? AND messages.chat_id = ?";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, keyword);
@@ -105,15 +105,8 @@ public class RemoteStorage {
             ResultSet resultSet = statement.executeQuery();
             while (resultSet.next()) {
                 String messageId = resultSet.getString("message_id");
-                String timestamp = resultSet.getString("timestamp");
-                String encryptedSender = resultSet.getString("sender");
-                String encryptedMessage = resultSet.getString("message");
-                String signature = resultSet.getString("signature");
-                StorageMessage message = new StorageMessage(messageId, timestamp, encryptedSender, chatId, encryptedMessage, signature);
-                messages.add(message.serialize());
+                messages.add(messageId);
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         } finally {
             connection.close();
         }

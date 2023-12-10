@@ -219,27 +219,28 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
 
     private String searchMessage(String message) {
         try {
-            GetChatMessage getChatMessage = GetChatMessage.fromString(message);
-            String username = getChatMessage.getUsername();
-            String chatId = getChatMessage.getChatId();
-            String signature = getChatMessage.getSignature();
+            SearchChatMessage searchChatMessage = SearchChatMessage.fromString(message);
+            String username = searchChatMessage.getUsername();
+            String chatId = searchChatMessage.getChatId();
+            String signature = searchChatMessage.getSignature();
+            String encryptedKeyword = searchChatMessage.getEncryptedKeyword();
 
             User user = new User(username);
             if (!user.getUser(true)) {
                 logger.log(Level.WARNING, "Invalid user");
-                return HistoryMessage.getNACK();
+                return SearchingResultMessage.getNACK();
             }
 
-            if (user.verifySignature(signature, chatId + "@" + username) && RemoteStorage.hasUserAccessToChat(username, chatId)) {
-                ArrayList<String> messages = RemoteStorage.getMessagesForKeywordAndChatId(message,chatId);
-                String serializedMessages = String.join("@", messages);
-                HistoryMessage response = new HistoryMessage(chatId, serializedMessages);
+            if (user.verifySignature(signature, chatId + "@" + username+"@"+encryptedKeyword) && RemoteStorage.hasUserAccessToChat(username, chatId)) {
+                ArrayList<String> messageIds = RemoteStorage.getMessagesForKeywordAndChatId(message,chatId);
+                String serializedMessages = String.join("@", messageIds);
+                SearchingResultMessage response = new SearchingResultMessage(chatId, serializedMessages);
                 return response.encode();
             }
-            return HistoryMessage.getNACK();
+            return SearchingResultMessage.getNACK();
         } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException | SQLException e) {
             logger.log(Level.WARNING, "Failed to get messages from store " + e);
-            return HistoryMessage.getNACK();
+            return SearchingResultMessage.getNACK();
         }
     }
 }

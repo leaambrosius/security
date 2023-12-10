@@ -1,6 +1,7 @@
 package App.Client;
 
 import App.Messages.*;
+import App.SearchableEncryption.SearchingManager;
 import App.Storage.KeyRepository;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
@@ -195,6 +196,7 @@ public class Peer {
                     StorageMessage encrypted = message.encrypted(encryptionManager, secretKey);
                     String serialized = encrypted.serialize();
                     serializedMessages.add(serialized);
+                    sendKeywords(message);
                 }
                 String signature = encryptionManager.signMessage(chatId + "@" + username);
                 StoreChatMessage storeChatMessage = new StoreChatMessage(username, chatId, signature, serializedMessages);
@@ -208,6 +210,12 @@ public class Peer {
                 logger.log(Level.WARNING, "Failed to send chat history " + e);
             }
         });
+    }
+
+    private void sendKeywords(StorageMessage m) {
+        ArrayList<String> keywords = SearchingManager.getKeywords(m.message);
+
+
     }
 
     private String sendToServer(String encodedMessage) {
@@ -278,8 +286,22 @@ public class Peer {
         return access != null && access.isAfter(minuteAgo);
     }
 
-    public void searchForKeyword(String peer, String chatId, String keyword){
-      // TODO
+    public void searchForKeyword( String chatId, String keyword){
+        executorService.submit(() -> {
+            try {
+                String encryptedKeyword = encryptionManager.getKeywordHash(keyword);
+                String signature = encryptionManager.signMessage(chatId + "@" + username+ "@" + encryptedKeyword);
+                SearchChatMessage searchChatMessage = new SearchChatMessage(username, chatId, encryptedKeyword,signature);
+                String serverResponse = sendToServer(searchChatMessage.encode());
+
+                SearchingResultMessage searchingResultMessage = SearchingResultMessage.fromString(serverResponse);
+                ArrayList<String> serializedMessageIds = searchingResultMessage.getSerializedDataList();
+
+                SearchingManager.putMessages(serializedMessageIds,keyword,chatId);
+            } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException | InvalidMessageException e) {
+                logger.log(Level.WARNING, "Failed to fetch search results " + e);
+            }
+        });
 
     }
 }

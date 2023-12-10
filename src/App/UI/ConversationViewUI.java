@@ -170,6 +170,7 @@ public class ConversationViewUI implements MessageObserver {
             String chatId = MessagesRepository.mr().getChatId(receiverUsername);
             if(subscribeLater) {
                 MessagesRepository.mr().subscribe(this, chatId);
+                subscribeLater = false;
             }
             StorageMessage messageToStore = new StorageMessage(message, user.username, chatId);
             MessagesRepository.mr().addMessage(messageToStore);
@@ -177,12 +178,6 @@ public class ConversationViewUI implements MessageObserver {
             new Thread(() -> receiver.sendMessage(message.encode())).start();
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             logger.log(Level.WARNING, "Message not send");
-        }
-    }
-
-    public void showMessageReceived(String message, String peer) {
-        if (peer.equals(receiverUsername)) {
-            messageInputField.setText("");
         }
     }
 

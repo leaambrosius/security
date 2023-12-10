@@ -204,10 +204,6 @@ public class GroupChatViewUI implements MessageObserver  {
         }
     }
 
-    public void showMessageReceived(StorageMessage message) {
-        messageInputField.setText("");
-    }
-
     public String getGroupName() {
         return this.groupName;
     }

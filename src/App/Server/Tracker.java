@@ -39,7 +39,7 @@ public class Tracker {
             sslServerSocket.setEnabledCipherSuites(sslServerSocket.getSupportedCipherSuites());
             sslServerSocket.setEnabledProtocols(enabledProtocols);
 
-            logger.log(Level.INFO, "P2P Server is listening on port " + serverPort);
+            logger.log(Level.INFO, "P2P Server is listening on port " + serverPort + " " + sslServerSocket.getInetAddress().getHostAddress());
 
             // Create a thread pool to handle incoming connections
             ExecutorService executor = Executors.newFixedThreadPool(10);

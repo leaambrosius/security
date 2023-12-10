@@ -369,10 +369,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
         StorageMessage storageMessage = new StorageMessage(messageToStore, peerUsername, chatId);
         MessagesRepository.mr().addMessage(storageMessage);
 
-        if (isChatActive(peerUsername)) {
-            // Send the msg to the open chat window to be displayed
-            openedChat.showMessageReceived(messageToStore.getMessageText(), peerUsername);
-        } else {
+        if (!isChatActive(peerUsername)) {
             // Changes the user tile to another color, because of unread message
             UnreadMessagesCellRenderer.unreadMessage(peerUsername);
             SwingUtilities.invokeLater(() -> {
@@ -401,9 +398,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     }
 
     private void handleMessagesFromGroupChats(String groupName, StorageMessage message) {
-        if (isGroupWindowOpened(groupName)) {
-            openedGroup.showMessageReceived(message);
-        } else {
+        if (!isGroupWindowOpened(groupName)) {
             UnreadMessagesCellRenderer.unreadMessage(groupName);
             SwingUtilities.invokeLater(() -> {
                 mainPanel.revalidate();

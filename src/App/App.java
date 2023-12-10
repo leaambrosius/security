@@ -10,8 +10,8 @@ import javax.swing.*;
 
 public class App {
     static String serverPort = "12345";
-    static String serverIP = "localhost";
-    static String localPort = "54320";
+    static String serverIP = "192.168.251.42";
+    static String localPort = "54323";
 
     public static void main(String[] args) {
         if (args.length > 0) {

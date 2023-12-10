@@ -1,6 +1,7 @@
 package App.Client;
 
 import App.Messages.*;
+import App.SearchableEncryption.SearchingManager;
 import App.Storage.KeyRepository;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
@@ -12,6 +13,7 @@ import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.*;
 import java.io.*;
+import java.lang.reflect.Array;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.*;
@@ -26,12 +28,6 @@ import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * TODO clean up debug println
- * TODO multiple peers
- * TODO closing sockets
- * TODO refactor, passing host to PeerConnection is meh, we should have separate classes
- */
 
 public class Peer {
     private ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -183,7 +179,7 @@ public class Peer {
 
         lastStoreData = Instant.now();
         executorService.submit(() -> {
-            ArrayList<StorageMessage> storageMessages = MessagesRepository.mr().getChatHistory(chatId);
+            ArrayList<StorageMessage> storageMessages = MessagesRepository.mr().getChatHistoryForRemote(chatId);
             ArrayList<String> serializedMessages = new ArrayList<>();
             SecretKey secretKey = getStorageKeyByChat(chatId);
             if (secretKey == null) {
@@ -194,17 +190,43 @@ public class Peer {
                     StorageMessage encrypted = message.encrypted(encryptionManager, secretKey);
                     String serialized = encrypted.serialize();
                     serializedMessages.add(serialized);
+                    sendKeywords(message);
                 }
                 String signature = encryptionManager.signMessage(chatId + "@" + username);
                 StoreChatMessage storeChatMessage = new StoreChatMessage(username, chatId, signature, serializedMessages);
                 String serverResponse = sendToServer(storeChatMessage.encode());
-
                 ResponseMessage response = ResponseMessage.fromString(serverResponse);
-                if (response.isAck()) logger.log(Level.INFO, "Messages stored remotely successfully");
+
+                if (response.isAck()) {
+                    MessagesRepository.mr().updateStored(chatId, storageMessages);
+                    logger.log(Level.INFO, "Messages stored remotely successfully");
+                }
                 else logger.log(Level.WARNING, "Failed to store messages remotely");
 
             } catch (NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException | IOException | InvalidKeyException | SignatureException | InvalidMessageException e) {
                 logger.log(Level.WARNING, "Failed to send chat history " + e);
+            }
+        });
+    }
+
+    private void sendKeywords(StorageMessage m) {
+        executorService.submit(() -> {
+            ArrayList<String> plaintextKeywords = SearchingManager.getKeywords(m.message);
+            ArrayList<String> keywords = new ArrayList<>();
+            for (String word : plaintextKeywords) {
+                keywords.add(encryptionManager.getKeywordHash(word));
+            }
+            try {
+                String encodedKeywords = String.join("@", keywords);
+                String signature = encryptionManager.signMessage(m.chatId + "@" + username + "@" + m.messageId + "@" + encodedKeywords);
+                StoreKeywordsMessage storeKeywordsMessage = new StoreKeywordsMessage(username, m.chatId, signature, keywords, m.messageId);
+                String serverResponse = sendToServer(storeKeywordsMessage.encode());
+                ResponseMessage response = ResponseMessage.fromString(serverResponse);
+                if (response.isAck()) logger.log(Level.INFO, "Keywords stored remotely successfully");
+                else logger.log(Level.WARNING, "Failed to store keywords remotely");
+
+            } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException | InvalidMessageException e) {
+                logger.log(Level.WARNING, "Failed to send keywords history " + e);
             }
         });
     }
@@ -275,5 +297,22 @@ public class Peer {
         Instant now = Instant.now();
         Instant minuteAgo = now.minusSeconds(10);
         return access != null && access.isAfter(minuteAgo);
+    }
+
+    public void searchForKeyword( String chatId, String keyword, String fullKeyword){
+        executorService.submit(() -> {
+            try {
+                String encryptedKeyword = encryptionManager.getKeywordHash(keyword);
+                String signature = encryptionManager.signMessage(chatId + "@" + username+ "@" + encryptedKeyword);
+                SearchChatMessage searchChatMessage = new SearchChatMessage(username, chatId, encryptedKeyword, signature);
+                String serverResponse = sendToServer(searchChatMessage.encode());
+                SearchingResultMessage searchingResultMessage = SearchingResultMessage.fromString(serverResponse);
+                ArrayList<String> serializedMessageIds = searchingResultMessage.getSerializedDataList();
+                SearchingManager.putMessages(serializedMessageIds, chatId, fullKeyword);
+            } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException | InvalidMessageException e) {
+                logger.log(Level.WARNING, "Failed to fetch search results " + e);
+            }
+        });
+
     }
 }

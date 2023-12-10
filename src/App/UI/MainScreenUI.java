@@ -21,6 +21,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     private JPanel mainPanel;
     private CardLayout cardLayout;
     private JList<String> conversationsList;
+
     private JButton startConversationButton;
     private final List<ConversationViewUI> activeConversations;
     private final Peer user;
@@ -48,25 +49,19 @@ public class MainScreenUI extends JFrame implements MessageListener {
         cardLayout = new CardLayout();
         cardPanel = new JPanel(cardLayout);
         mainPanel = new JPanel();
-
         mainPanel.setLayout(new BorderLayout());
 
-        //TODO delete test users
-        //conversationsList = new JList<>(new String[]{"Add User","Create group chat", "D", "Username 2", "Username 3", "Username 4", "Username 41", "Username 42", "Username 43", "Username 44", "Username 45", "Username 46", "Username 47", "Username 48", "Username 49", "Username 411"});
         getContactsList();
         conversationsList.setCellRenderer(new UnreadMessagesCellRenderer());
         if (currentModel != null) {
             conversationsList.setModel(currentModel);
         }
         mainPanel.add(new JScrollPane(conversationsList), BorderLayout.CENTER);
-
         startConversationButton = new JButton("Select");
 
         actionListener();
 
         mainPanel.add(startConversationButton, BorderLayout.SOUTH);
-
-
         cardPanel.add(mainPanel, "mainPanel");
         frame.getContentPane().add(cardPanel);
     }
@@ -181,8 +176,6 @@ public class MainScreenUI extends JFrame implements MessageListener {
 
     //Used when creating a new group chat
     private void addGroupChat(String groupName, ArrayList<String> members, String groupStorageKey) {
-        //TODO check if group name is not equal to any user name or any group
-
         addNewContactOrGroup(groupName);
         existingGroupChats.add(groupName);
         groupChatsMembers.put(groupName, members);
@@ -193,7 +186,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
 
     //Used when received a group chat invitation
     private void openGroupChat(String groupName) {
-        GroupChatViewUI groupChatViewUI = new GroupChatViewUI(this, groupChatsMembers.get(groupName), currentModel, this.user, groupName);
+        GroupChatViewUI groupChatViewUI = new GroupChatViewUI(this, groupChatsMembers.get(groupName), this.user, groupName, null,null);
         groupChatViewUI.setVisible(true);
         openedGroup = groupChatViewUI;
         UnreadMessagesCellRenderer.readMessage(groupName);
@@ -201,7 +194,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     }
 
     private void openConversationView(String peer) {
-        ConversationViewUI conversationView = new ConversationViewUI(this, peer, user);
+        ConversationViewUI conversationView = new ConversationViewUI(this, peer, user, null, null);
         activeConversations.add(conversationView);
         conversationView.setVisible(true);
         openedChat = conversationView;
@@ -247,10 +240,13 @@ public class MainScreenUI extends JFrame implements MessageListener {
 
     public void newUser(JTextField textField) {
         String inputText = textField.getText();
-        if (!checkNewUser(inputText) || !isNewUser(inputText)) {
+        if (inputText.equals(user.username)){
+            showWarning("Peername and Username can not be the same!");
+            return;
+        } else if (!checkNewUser(inputText) || !isNewUser(inputText)) {
             cardPanel.remove(cardPanel.getComponentCount() - 1);
             showWarning("User not found!");
-            return; //TODO handle error trying to find user in server
+            return;
         }
         cardPanel.remove(cardPanel.getComponentCount() - 1);
         addNewContactOrGroup(inputText);
@@ -365,10 +361,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
         StorageMessage storageMessage = new StorageMessage(messageToStore, peerUsername, chatId);
         MessagesRepository.mr().addMessage(storageMessage);
 
-        if (isChatActive(peerUsername)) {
-            // Send the msg to the open chat window to be displayed
-            openedChat.showMessageReceived(messageToStore.getMessageText(), peerUsername);
-        } else {
+        if (!isChatActive(peerUsername)) {
             // Changes the user tile to another color, because of unread message
             UnreadMessagesCellRenderer.unreadMessage(peerUsername);
             SwingUtilities.invokeLater(() -> {
@@ -397,9 +390,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
     }
 
     private void handleMessagesFromGroupChats(String groupName, StorageMessage message) {
-        if (isGroupWindowOpened(groupName)) {
-            openedGroup.showMessageReceived(message);
-        } else {
+        if (!isGroupWindowOpened(groupName)) {
             UnreadMessagesCellRenderer.unreadMessage(groupName);
             SwingUtilities.invokeLater(() -> {
                 mainPanel.revalidate();

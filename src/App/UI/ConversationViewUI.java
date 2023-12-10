@@ -3,10 +3,10 @@ package App.UI;
 import App.Client.Peer;
 import App.Client.PeerConnection;
 import App.Messages.ChatMessage;
-import App.Storage.ChatRecord;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
 
+import javax.annotation.Nullable;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -29,6 +29,7 @@ public class ConversationViewUI implements MessageObserver {
     private JTextArea messageDisplayArea;
     private JTextField messageInputField;
     private JButton sendButton;
+    private JButton searchButton;
     private JButton backButton;
     private final String receiverUsername;
     private final Peer user;
@@ -36,22 +37,25 @@ public class ConversationViewUI implements MessageObserver {
 
     private boolean subscribeLater = false;
 
-    public ConversationViewUI(MainScreenUI mainUI, String recipientName, Peer user) {
+    public ConversationViewUI(MainScreenUI mainUI, String recipientName, Peer user, @Nullable Integer x, @Nullable Integer y) {
         this.mainUI = mainUI;
         this.receiverUsername = recipientName;
         this.user = user;
         if (!user.peerConnections.containsKey(receiverUsername)){
             new Thread(() -> user.connectToPeer(receiverUsername)).start();
         }
-        initialize(recipientName);
+        initialize(recipientName,x,y);
     }
 
-    private void initialize(String recipientName) {
+    private void initialize(String recipientName, Integer x, Integer y) {
         frame = new JFrame("Conversation with " + recipientName);
         frame.setSize(400, 400);
-        //MainScreenUI.centerFrameOnScreen(frame);
-        frame.setLocation(mainUI.getFrame().getX(), mainUI.getFrame().getY());
 
+        if (x==null){
+            frame.setLocation(mainUI.getFrame().getX(), mainUI.getFrame().getY());
+        } else {
+            frame.setLocation(x, y);
+        }
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         frame.getContentPane().setLayout(new BorderLayout());
 
@@ -71,12 +75,19 @@ public class ConversationViewUI implements MessageObserver {
 
         sendButton = new JButton("Send");
         backButton = new JButton("Back");
+        searchButton = new JButton("Search");
 
         actionlistener();
         keyListener();
 
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new FlowLayout());
+        buttonPanel.add(backButton);
+        buttonPanel.add(searchButton);
+
+        frame.add(buttonPanel,BorderLayout.NORTH);
+
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
-        frame.getContentPane().add(backButton, BorderLayout.NORTH);
 
         frame.addWindowListener(new WindowAdapter() {
             @Override
@@ -124,7 +135,13 @@ public class ConversationViewUI implements MessageObserver {
             mainUI.placeFrameInCoordinates(frame.getX(),frame.getY());
             mainUI.setVisible(true);
         });
-
+        searchButton.addActionListener(e -> {
+            String chatId = MessagesRepository.mr().getChatId(receiverUsername);
+            user.sendMessagesToRemoteServer(chatId);
+            mainUI.closeChat();
+            frame.dispose();
+            SearchChatUI searchChatUI = new SearchChatUI(frame,mainUI,receiverUsername, user,"user",null);
+        });
     }
 
     public void close() {
@@ -153,19 +170,15 @@ public class ConversationViewUI implements MessageObserver {
             String chatId = MessagesRepository.mr().getChatId(receiverUsername);
             if(subscribeLater) {
                 MessagesRepository.mr().subscribe(this, chatId);
+                subscribeLater = false;
             }
             StorageMessage messageToStore = new StorageMessage(message, user.username, chatId);
             MessagesRepository.mr().addMessage(messageToStore);
+            user.sendMessagesToRemoteServer(chatId);
 
             new Thread(() -> receiver.sendMessage(message.encode())).start();
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             logger.log(Level.WARNING, "Message not send");
-        }
-    }
-
-    public void showMessageReceived(String message, String peer) {
-        if (peer.equals(receiverUsername)) {
-            messageInputField.setText("");
         }
     }
 

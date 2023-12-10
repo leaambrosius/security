@@ -8,6 +8,7 @@ import App.Storage.GroupRecord;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
 
+import javax.annotation.Nullable;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -31,6 +32,7 @@ public class GroupChatViewUI implements MessageObserver  {
 
     private JTextField messageInputField;
     private JButton sendButton;
+    private JButton searchButton;
     private JButton backButton;
 
     private ArrayList<String> members;
@@ -39,13 +41,13 @@ public class GroupChatViewUI implements MessageObserver  {
     private MainScreenUI mainUI;
 
 
-    public GroupChatViewUI(MainScreenUI mainUI, ArrayList<String> members, DefaultListModel<String> mainModel, Peer user, String groupName) {
+    public GroupChatViewUI(MainScreenUI mainUI, ArrayList<String> members, Peer user, String groupName, @Nullable Integer x, @Nullable Integer y) {
         this.mainUI = mainUI;
         this.members = members;
         this.user = user;
         this.groupName = groupName;
         openSocketsWithGroupMembers();
-        initialize();
+        initialize(x,y);
     }
 
     public GroupChatViewUI(ArrayList<String> members, Peer user, String groupName) {
@@ -54,7 +56,6 @@ public class GroupChatViewUI implements MessageObserver  {
         this.groupName = groupName;
 
         openSocketsWithGroupMembers();
-        //TODO find a better way to wait for handshake and then invite members
         try {
             Thread.sleep(1000);
             inviteMembers();
@@ -69,7 +70,6 @@ public class GroupChatViewUI implements MessageObserver  {
         for (String member : members) {
             PeerConnection receiver = user.peerConnections.get(member);
             if (receiver != null) {
-                // TODO do we need new thread for each?
                 new Thread(() -> {
                     receiver.sendMessage(groupInvitationMessage.encode());
                 }).start();
@@ -93,14 +93,17 @@ public class GroupChatViewUI implements MessageObserver  {
         return membersDisplayText;
     }
 
-    private void initialize() {
-        //TODO change the this to group name and maybe add a option to see group members
+    private void initialize(Integer x, Integer y) {
         frame = new JFrame("Group with " + groupChatDisplayMessage());
 
 
         frame.setSize(400, 400);
         //MainScreenUI.centerFrameOnScreen(frame);
-        frame.setLocation(mainUI.getFrame().getX(), mainUI.getFrame().getY());
+        if (x==null){
+            frame.setLocation(mainUI.getFrame().getX(), mainUI.getFrame().getY());
+        } else {
+            frame.setLocation(x, y);
+        }
 
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.getContentPane().setLayout(new BorderLayout());
@@ -114,9 +117,18 @@ public class GroupChatViewUI implements MessageObserver  {
 
         sendButton = new JButton("Send");
         backButton = new JButton("Back");
+        searchButton = new JButton("Search");
+
 
         actionlistener();
         keyListener();
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new FlowLayout());
+        buttonPanel.add(backButton);
+        buttonPanel.add(searchButton);
+
+        frame.add(buttonPanel,BorderLayout.NORTH);
 
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
         frame.getContentPane().add(backButton, BorderLayout.NORTH);
@@ -167,6 +179,12 @@ public class GroupChatViewUI implements MessageObserver  {
             mainUI.placeFrameInCoordinates(frame.getX(), frame.getY());
             mainUI.setVisible(true);
         });
+        searchButton.addActionListener(e -> {
+            user.sendMessagesToRemoteServer(groupName);
+            mainUI.closeChat();
+            frame.dispose();
+            SearchChatUI searchChatUI = new SearchChatUI(frame,mainUI,groupName, user,"group",members);
+        });
 
     }
 
@@ -199,13 +217,10 @@ public class GroupChatViewUI implements MessageObserver  {
             }
             StorageMessage messageToStore = new StorageMessage(groupMessage, user.username);
             MessagesRepository.mr().addMessage(messageToStore);
+            user.sendMessagesToRemoteServer(groupName);
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             logger.log(Level.WARNING, "Group message not send");
         }
-    }
-
-    public void showMessageReceived(StorageMessage message) {
-        messageInputField.setText("");
     }
 
     public String getGroupName() {

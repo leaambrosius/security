@@ -97,40 +97,42 @@ public class RemoteStorage {
         Connection connection = CloudConnectionPoolFactory.getConnection();
 
         ArrayList<String> messages = new ArrayList<>();
-        String query = "SELECT * FROM messages JOIN keywords ON messages.message_id = keywords.message_id " +
-                "WHERE keywords.keyword = ? AND messages.chat_id = ?";
+        String query = "SELECT DISTINCT m.message_id " +
+                "FROM messages m " +
+                "JOIN keywords k ON m.message_id = k.message_id " +
+                "JOIN chats c ON m.chat_id = c.chat_id " +
+                "WHERE k.keyword = ? AND c.chat_id = ?";
+
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, keyword);
             statement.setString(2, chatId);
             ResultSet resultSet = statement.executeQuery();
             while (resultSet.next()) {
                 String messageId = resultSet.getString("message_id");
-                String timestamp = resultSet.getString("timestamp");
-                String encryptedSender = resultSet.getString("sender");
-                String encryptedMessage = resultSet.getString("message");
-                String signature = resultSet.getString("signature");
-                StorageMessage message = new StorageMessage(messageId, timestamp, encryptedSender, chatId, encryptedMessage, signature);
-                messages.add(message.serialize());
+                messages.add(messageId);
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         } finally {
             connection.close();
+            return messages;
         }
-        return messages;
     }
 
-    public static void insertKeywordMessage(String keyword, String messageId) throws SQLException {
+    public static void insertKeywordMessages(ArrayList<String> keywords, String messageId) throws SQLException {
         Connection connection = CloudConnectionPoolFactory.getConnection();
 
         String query = "INSERT INTO keywords (keyword, message_id) VALUES (?, ?) ON CONFLICT (keyword, message_id) DO NOTHING";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
-            statement.setString(1, keyword);
-            statement.setString(2, messageId);
-            statement.executeUpdate();
+            for (String keyword : keywords) {
+                statement.setString(1, keyword);
+                statement.setString(2, messageId);
+                statement.addBatch();
+            }
+            statement.executeBatch();
+
         } finally {
             connection.close();
         }
+
     }
 }
 

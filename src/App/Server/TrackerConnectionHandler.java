@@ -19,7 +19,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
-    static java.util.logging.Logger logger = Logger.getLogger(TrackerConnectionHandler.class.getName());
+    static Logger logger = Logger.getLogger(TrackerConnectionHandler.class.getName());
 
     @Override
     public void run() {
@@ -44,6 +44,8 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 case "GET_CHAT" -> response = getChatHistory(message);
                 case "REGISTER_CHAT" -> response = registerChatInStorage(message);
                 case "STORE_CHAT" -> response = storeMessagesInStorage(message);
+                case "SEARCH_CHAT" -> response = searchMessage(message);
+                case "STORE_KEYWORD" -> response = storeKeyword(message);
                 default -> logger.log(Level.WARNING,"Unknown message received: " + message);
             }
 
@@ -213,6 +215,65 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
         } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException | SQLException e) {
             logger.log(Level.WARNING, "Failed to register chat to store " + e);
             return RegisterChatMessage.getNACK();
+        }
+    }
+
+    private String searchMessage(String message) {
+        try {
+            SearchChatMessage searchChatMessage = SearchChatMessage.fromString(message);
+            String username = searchChatMessage.getUsername();
+            String chatId = searchChatMessage.getChatId();
+            String signature = searchChatMessage.getSignature();
+            String encryptedKeyword = searchChatMessage.getEncryptedKeyword();
+
+            User user = new User(username);
+            if (!user.getUser(true)) {
+                logger.log(Level.WARNING, "Invalid user");
+                return SearchingResultMessage.getNACK();
+            }
+
+            if (user.verifySignature(signature, chatId + "@" + username+ "@" +encryptedKeyword) && RemoteStorage.hasUserAccessToChat(username, chatId)) {
+                ArrayList<String> messageIds = RemoteStorage.getMessagesForKeywordAndChatId(encryptedKeyword, chatId);
+                String serializedMessages = String.join("@", messageIds);
+                SearchingResultMessage response = new SearchingResultMessage(chatId, serializedMessages);
+                return response.encode();
+            }
+            return SearchingResultMessage.getNACK();
+        } catch (InvalidMessageException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException | SQLException e) {
+            logger.log(Level.WARNING, "Failed to get messages from store " + e);
+            return SearchingResultMessage.getNACK();
+        }
+    }
+
+    private String storeKeyword(String message) {
+        try {
+            StoreKeywordsMessage storeKeywordsMessage = StoreKeywordsMessage.fromString(message);
+            String username = storeKeywordsMessage.getUsername();
+            String chatId = storeKeywordsMessage.getChatId();
+            String signature = storeKeywordsMessage.getSignature();
+            ArrayList<String> messages = storeKeywordsMessage.getSerializedDataList();
+            String messageId = storeKeywordsMessage.getMessageId();
+
+            User user = new User(username);
+            if (!user.getUser(true)) {
+                logger.log(Level.WARNING, "Invalid user");
+                return storeKeywordsMessage.generateNACK();
+            }
+
+            String encodedKeywords = String.join("@", messages);
+            if (!user.verifySignature(signature, chatId + "@" + username + "@" + messageId + "@" + encodedKeywords)) {
+                logger.log(Level.WARNING, "Invalid signature");
+                return storeKeywordsMessage.generateNACK();
+            }
+            if (RemoteStorage.hasUserAccessToChat(username, chatId)) {
+                RemoteStorage.insertKeywordMessages(messages, messageId);
+                return storeKeywordsMessage.generateACK();
+            }
+            logger.log(Level.WARNING, "No access to chat");
+            return storeKeywordsMessage.generateNACK();
+        } catch (InvalidMessageException | SQLException | InvalidKeyException | SignatureException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+            logger.log(Level.WARNING, "Failed to store messages in store " + e);
+            return StoreKeywordsMessage.getNACK();
         }
     }
 }

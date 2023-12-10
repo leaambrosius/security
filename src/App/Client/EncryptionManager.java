@@ -108,5 +108,9 @@ public class EncryptionManager {
 
         return socket;
     }
+
+    public String getKeywordHash(String keyword){
+        return String.valueOf(keyword.hashCode());
+    }
 }
 

@@ -213,8 +213,10 @@ public class Peer {
     }
 
     private void sendKeywords(StorageMessage m) {
-        ArrayList<String> keywords = SearchingManager.getKeywords(m.message);
         executorService.submit(() -> {
+            ArrayList<String> keywords = SearchingManager.getKeywords(m.message);
+            keywords = (ArrayList<String>) keywords.stream()
+                    .map(encryptionManager::getKeywordHash).toList();
             ArrayList<String> serializedMessages = new ArrayList<>();
 
             try {
@@ -231,8 +233,6 @@ public class Peer {
                 logger.log(Level.WARNING, "Failed to send keywords history " + e);
             }
         });
-
-
     }
 
     private String sendToServer(String encodedMessage) {

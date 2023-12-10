@@ -174,6 +174,7 @@ public class ConversationViewUI implements MessageObserver {
             }
             StorageMessage messageToStore = new StorageMessage(message, user.username, chatId);
             MessagesRepository.mr().addMessage(messageToStore);
+            user.sendMessagesToRemoteServer(chatId);
 
             new Thread(() -> receiver.sendMessage(message.encode())).start();
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {

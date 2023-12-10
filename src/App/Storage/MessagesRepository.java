@@ -14,6 +14,9 @@ public class MessagesRepository {
     public HashMap<String, GroupRecord> groups = new HashMap<>();
     public HashMap<String, MessageObserver> listeners = new HashMap<>();
 
+    // Chat ID -> last stored
+    public HashMap<String, Set<String>> remoteStored = new HashMap<>();
+
     private static MessagesRepository messagesRepository; // Singleton instance
 
     public static MessagesRepository mr() {
@@ -48,6 +51,8 @@ public class MessagesRepository {
     }
 
     public void addMultipleMessages(String chatId, ArrayList<StorageMessage> mList) {
+        MessagesRepository.mr().updateStored(chatId, mList);
+
         ArrayList<StorageMessage> history = chatsHistory.get(chatId);
         ArrayList<StorageMessage> mergedArray = new ArrayList<>();
         mergedArray.addAll(history);
@@ -89,6 +94,31 @@ public class MessagesRepository {
         return chatsHistory.getOrDefault(chatId, new ArrayList<>());
     }
 
+    public ArrayList<StorageMessage> getChatHistoryForRemote(String chatId) {
+        ArrayList<StorageMessage> history = chatsHistory.getOrDefault(chatId, new ArrayList<>());
+        ArrayList<StorageMessage> toStore = new ArrayList<>();
+        Set<String> storedIds = remoteStored.getOrDefault(chatId, null);
+
+        if (storedIds == null) {
+            storedIds = new HashSet<>();
+            remoteStored.put(chatId, storedIds);
+            return history;
+        }
+        for (StorageMessage m : history) {
+            if (!storedIds.contains(m.messageId)) {
+                toStore.add(m);
+            }
+        }
+        return toStore;
+    }
+    public void updateStored(String chatId, ArrayList<StorageMessage> storedHistory) {
+        Set<String> storedIds = remoteStored.getOrDefault(chatId, new HashSet<>());
+        for (StorageMessage m : storedHistory) {
+            storedIds.add(m.messageId);
+            System.out.println("Storing " + m.messageId);
+        }
+    }
+
     public String getStorageKey(String name) {
         if (peerToChat.containsKey(name)) {
             return peerToChat.get(name).symmetricKey;
@@ -117,61 +147,4 @@ public class MessagesRepository {
     public void subscribe(MessageObserver o, String chatId) {
         this.listeners.put(chatId, o);
     }
-
-//    private static byte[] encryptChatRooms(HashMap<String, ArrayList<Message>> chatRooms, PublicKey publicKey)
-//            throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IOException, IllegalBlockSizeException, BadPaddingException {
-//
-//        byte[] serializedData;
-//        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-//             ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-//
-//            oos.writeObject(chatRooms);
-//            serializedData = baos.toByteArray();
-//        }
-//
-//        KeyGenerator keyGen = KeyGenerator.getInstance(SYMMETRIC_ALGORITHM);
-//        SecretKey secretKey = keyGen.generateKey();
-//
-//        Cipher aesCipher = Cipher.getInstance(SYMMETRIC_ALGORITHM);
-//        aesCipher.init(Cipher.ENCRYPT_MODE, secretKey);
-//        byte[] encryptedData = aesCipher.doFinal(serializedData);
-//
-//        Cipher rsaCipher = Cipher.getInstance(CIPHER_TRANSFORMATION);
-//        rsaCipher.init(Cipher.ENCRYPT_MODE, publicKey);
-//        byte[] encryptedSymmetricKey = rsaCipher.doFinal(secretKey.getEncoded());
-//
-//        // Combination of encrypted symmetric key and encrypted data into single byte array
-//        ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
-//        resultStream.write(encryptedSymmetricKey);
-//        resultStream.write(encryptedData);
-//
-//        return resultStream.toByteArray();
-//    }
-
-//    public void decryptFromStorage(String username)
-//            throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IOException, IllegalBlockSizeException, BadPaddingException, ClassNotFoundException {
-//
-//        byte[] encryptedData = loadEncryptedDataFromFile("encrypted_"+username+"_chatRooms.txt");
-//
-//        PrivateKey privateKey = KeyRepository.getKeys(username).getPrivate();
-//
-//
-//        int keySize = KEY_SIZE / 8;
-//        byte[] encryptedSymmetricKey = Arrays.copyOfRange(encryptedData, 0, keySize);
-//        byte[] encryptedActualData = Arrays.copyOfRange(encryptedData, keySize, encryptedData.length);
-//
-//        Cipher rsaCipher = Cipher.getInstance(CIPHER_TRANSFORMATION);
-//        rsaCipher.init(Cipher.DECRYPT_MODE, privateKey);
-//        byte[] decryptedSymmetricKey = rsaCipher.doFinal(encryptedSymmetricKey);
-//
-//        SecretKeySpec secretKeySpec = new SecretKeySpec(decryptedSymmetricKey, SYMMETRIC_ALGORITHM);
-//        Cipher aesCipher = Cipher.getInstance(SYMMETRIC_ALGORITHM);
-//        aesCipher.init(Cipher.DECRYPT_MODE, secretKeySpec);
-//        byte[] decryptedData = aesCipher.doFinal(encryptedActualData);
-//
-//        try (ByteArrayInputStream bais = new ByteArrayInputStream(decryptedData);
-//             ObjectInputStream ois = new ObjectInputStream(bais)) {
-//            chatRooms = (HashMap<String, ArrayList<Message>>) ois.readObject();
-//        }
-//    }
 }

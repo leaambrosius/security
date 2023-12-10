@@ -134,6 +134,7 @@ public class GroupChatViewUI implements MessageObserver  {
         frame.add(buttonPanel,BorderLayout.NORTH);
 
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
+        frame.getContentPane().add(backButton, BorderLayout.NORTH);
 
         MessagesRepository.mr().subscribe(this, groupName);
         for (StorageMessage message : MessagesRepository.mr().getChatHistory(groupName)) {
@@ -219,6 +220,7 @@ public class GroupChatViewUI implements MessageObserver  {
             }
             StorageMessage messageToStore = new StorageMessage(groupMessage, user.username);
             MessagesRepository.mr().addMessage(messageToStore);
+            user.sendMessagesToRemoteServer(groupName);
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             logger.log(Level.WARNING, "Group message not send");
         }

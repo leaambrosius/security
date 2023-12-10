@@ -19,7 +19,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
-    static java.util.logging.Logger logger = Logger.getLogger(TrackerConnectionHandler.class.getName());
+    static Logger logger = Logger.getLogger(TrackerConnectionHandler.class.getName());
 
     @Override
     public void run() {

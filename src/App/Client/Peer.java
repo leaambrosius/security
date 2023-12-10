@@ -185,7 +185,8 @@ public class Peer {
 
         lastStoreData = Instant.now();
         executorService.submit(() -> {
-            ArrayList<StorageMessage> storageMessages = MessagesRepository.mr().getChatHistory(chatId);
+            ArrayList<StorageMessage> storageMessages = MessagesRepository.mr().getChatHistoryForRemote(chatId);
+            System.out.println(storageMessages);
             ArrayList<String> serializedMessages = new ArrayList<>();
             SecretKey secretKey = getStorageKeyByChat(chatId);
             if (secretKey == null) {
@@ -201,9 +202,12 @@ public class Peer {
                 String signature = encryptionManager.signMessage(chatId + "@" + username);
                 StoreChatMessage storeChatMessage = new StoreChatMessage(username, chatId, signature, serializedMessages);
                 String serverResponse = sendToServer(storeChatMessage.encode());
-
                 ResponseMessage response = ResponseMessage.fromString(serverResponse);
-                if (response.isAck()) logger.log(Level.INFO, "Messages stored remotely successfully");
+
+                if (response.isAck()) {
+                    MessagesRepository.mr().updateStored(chatId, storageMessages);
+                    logger.log(Level.INFO, "Messages stored remotely successfully");
+                }
                 else logger.log(Level.WARNING, "Failed to store messages remotely");
 
             } catch (NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException | IOException | InvalidKeyException | SignatureException | InvalidMessageException e) {

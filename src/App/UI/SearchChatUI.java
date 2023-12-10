@@ -1,17 +1,12 @@
 package App.UI;
 import App.Client.Peer;
-import App.Messages.ChatMessage;
-import App.Messages.SearchChatMessage;
 import App.SearchableEncryption.SearchingManager;
-import App.Storage.Message;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
-import opennlp.tools.stemmer.PorterStemmer;
 
+import javax.annotation.Nullable;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
 
 public class SearchChatUI implements MessageObserver {
@@ -22,12 +17,17 @@ public class SearchChatUI implements MessageObserver {
     String recipientName;
     Peer user;
     JFrame convFrame;
+    String userOrGroup;
 
-    public SearchChatUI(JFrame convFrame,MainScreenUI mainUI, String recipientName, Peer user) {
+    ArrayList<String> recipientNames;
+
+    public SearchChatUI(JFrame convFrame, MainScreenUI mainUI, String recipientName, Peer user, String userOrGroup, @Nullable ArrayList<String> recipientNames ) {
         this.convFrame = convFrame;
         this.mainUI = mainUI;
         this.recipientName = recipientName;
         this.user = user;
+        this.userOrGroup = userOrGroup;
+        this.recipientNames = recipientNames;
         init();
     }
 
@@ -52,8 +52,15 @@ public class SearchChatUI implements MessageObserver {
             int x = frame.getX();
             int y = frame.getY();
             frame.dispose();
-            ConversationViewUI newFrame = new ConversationViewUI(mainUI,recipientName,user,x,y);
-            newFrame.setVisible(true);
+if (userOrGroup.equals("user")) {
+    ConversationViewUI newFrame = new ConversationViewUI(mainUI, recipientName, user, x, y);
+    newFrame.setVisible(true);
+} else if (userOrGroup.equals("group")){
+    GroupChatViewUI newFrame = new GroupChatViewUI(mainUI,recipientNames,user,recipientName,x,y);
+    newFrame.setVisible(true);
+}
+
+
 
         });
 
@@ -70,6 +77,10 @@ public class SearchChatUI implements MessageObserver {
     private void performSearch() {
         String query = searchField.getText();
         String chatId = MessagesRepository.mr().getChatId(recipientName);
+        if (chatId == null){
+            chatId = recipientName;
+        }
+
         String stem = SearchingManager.getKeyword(query);
 
         SearchingManager.subscribe(query, this);

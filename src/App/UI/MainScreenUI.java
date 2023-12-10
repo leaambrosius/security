@@ -194,7 +194,7 @@ public class MainScreenUI extends JFrame implements MessageListener {
 
     //Used when received a group chat invitation
     private void openGroupChat(String groupName) {
-        GroupChatViewUI groupChatViewUI = new GroupChatViewUI(this, groupChatsMembers.get(groupName), currentModel, this.user, groupName);
+        GroupChatViewUI groupChatViewUI = new GroupChatViewUI(this, groupChatsMembers.get(groupName), this.user, groupName, null,null);
         groupChatViewUI.setVisible(true);
         openedGroup = groupChatViewUI;
         UnreadMessagesCellRenderer.readMessage(groupName);

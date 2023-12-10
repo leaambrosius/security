@@ -8,6 +8,7 @@ import App.Storage.GroupRecord;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
 
+import javax.annotation.Nullable;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -31,6 +32,7 @@ public class GroupChatViewUI implements MessageObserver  {
 
     private JTextField messageInputField;
     private JButton sendButton;
+    private JButton searchButton;
     private JButton backButton;
 
     private ArrayList<String> members;
@@ -39,13 +41,13 @@ public class GroupChatViewUI implements MessageObserver  {
     private MainScreenUI mainUI;
 
 
-    public GroupChatViewUI(MainScreenUI mainUI, ArrayList<String> members, DefaultListModel<String> mainModel, Peer user, String groupName) {
+    public GroupChatViewUI(MainScreenUI mainUI, ArrayList<String> members, Peer user, String groupName, @Nullable Integer x, @Nullable Integer y) {
         this.mainUI = mainUI;
         this.members = members;
         this.user = user;
         this.groupName = groupName;
         openSocketsWithGroupMembers();
-        initialize();
+        initialize(x,y);
     }
 
     public GroupChatViewUI(ArrayList<String> members, Peer user, String groupName) {
@@ -93,14 +95,18 @@ public class GroupChatViewUI implements MessageObserver  {
         return membersDisplayText;
     }
 
-    private void initialize() {
+    private void initialize(Integer x, Integer y) {
         //TODO change the this to group name and maybe add a option to see group members
         frame = new JFrame("Group with " + groupChatDisplayMessage());
 
 
         frame.setSize(400, 400);
         //MainScreenUI.centerFrameOnScreen(frame);
-        frame.setLocation(mainUI.getFrame().getX(), mainUI.getFrame().getY());
+        if (x==null){
+            frame.setLocation(mainUI.getFrame().getX(), mainUI.getFrame().getY());
+        } else {
+            frame.setLocation(x, y);
+        }
 
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.getContentPane().setLayout(new BorderLayout());
@@ -114,12 +120,20 @@ public class GroupChatViewUI implements MessageObserver  {
 
         sendButton = new JButton("Send");
         backButton = new JButton("Back");
+        searchButton = new JButton("Search");
+
 
         actionlistener();
         keyListener();
 
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new FlowLayout());
+        buttonPanel.add(backButton);
+        buttonPanel.add(searchButton);
+
+        frame.add(buttonPanel,BorderLayout.NORTH);
+
         frame.getContentPane().add(sendButton, BorderLayout.EAST);
-        frame.getContentPane().add(backButton, BorderLayout.NORTH);
 
         MessagesRepository.mr().subscribe(this, groupName);
         for (StorageMessage message : MessagesRepository.mr().getChatHistory(groupName)) {
@@ -166,6 +180,12 @@ public class GroupChatViewUI implements MessageObserver  {
             frame.dispose();
             mainUI.placeFrameInCoordinates(frame.getX(), frame.getY());
             mainUI.setVisible(true);
+        });
+        searchButton.addActionListener(e -> {
+            user.sendMessagesToRemoteServer(groupName);
+            mainUI.closeChat();
+            frame.dispose();
+            SearchChatUI searchChatUI = new SearchChatUI(frame,mainUI,groupName, user,"group",members);
         });
 
     }

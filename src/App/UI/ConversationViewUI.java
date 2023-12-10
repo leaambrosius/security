@@ -140,7 +140,7 @@ public class ConversationViewUI implements MessageObserver {
             user.sendMessagesToRemoteServer(chatId);
             mainUI.closeChat();
             frame.dispose();
-            SearchChatUI searchChatUI = new SearchChatUI(frame,mainUI,receiverUsername, user);
+            SearchChatUI searchChatUI = new SearchChatUI(frame,mainUI,receiverUsername, user,"user",null);
         });
     }
 

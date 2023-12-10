@@ -6,6 +6,8 @@ import java.util.Base64;
 import javax.crypto.*;
 import javax.net.ssl.*;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
 public class EncryptionManager {
     private final PrivateKey privateKey;
     private final PublicKey publicKey;
@@ -109,8 +111,8 @@ public class EncryptionManager {
         return socket;
     }
 
-    public String getKeywordHash(String keyword){
-        return String.valueOf(keyword.hashCode());
+    public static String getKeywordHash(String keyword) throws NoSuchAlgorithmException {
+        return new DigestUtils("SHA3-256").digestAsHex(keyword);
     }
 }
 

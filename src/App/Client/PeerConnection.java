@@ -132,7 +132,7 @@ public class PeerConnection {
             String storageSymmetricKeyString = Base64.getEncoder().encodeToString(storageSymmetricKey.getEncoded());
             logger.log(Level.INFO, "Setup storage symmetric key: " + Arrays.toString(storageSymmetricKey.getEncoded()));
 
-            this.chatId = String.valueOf(storageSymmetricKey.hashCode());
+            this.chatId = host.encryptionManager.getKeywordHash(storageSymmetricKeyString);
             logger.log(Level.INFO, "Setup chat id: " + this.chatId);
 
             // Send the encrypted symmetric key to the peer
@@ -172,11 +172,9 @@ public class PeerConnection {
             String decryptedStorageSymmetricKeyString = handshakeMessage.getStorageSymmetricKey();
             symmetricKeyBytes = Base64.getDecoder().decode(decryptedStorageSymmetricKeyString);
             this.storageSymmetricKey = new SecretKeySpec(symmetricKeyBytes, 0, symmetricKeyBytes.length, "AES");
-            this.chatId = String.valueOf(storageSymmetricKey.hashCode());
+            this.chatId = host.encryptionManager.getKeywordHash(decryptedStorageSymmetricKeyString);
             logger.log(Level.INFO, "Storage key " + Arrays.toString(storageSymmetricKey.getEncoded()));
             logger.log(Level.INFO, "Chat ID " + this.chatId);
-
-            this.chatId = String.valueOf(storageSymmetricKey.hashCode());
 
             // Send acknowledgment to the peer
             String handshakeAck = handshakeMessage.generateACK();

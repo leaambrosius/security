@@ -213,10 +213,10 @@ public class Peer {
         executorService.submit(() -> {
             ArrayList<String> plaintextKeywords = SearchingManager.getKeywords(m.message);
             ArrayList<String> keywords = new ArrayList<>();
-            for (String word : plaintextKeywords) {
-                keywords.add(encryptionManager.getKeywordHash(word));
-            }
             try {
+                for (String word : plaintextKeywords) {
+                    keywords.add(encryptionManager.getKeywordHash(word));
+                }
                 String encodedKeywords = String.join("@", keywords);
                 String signature = encryptionManager.signMessage(m.chatId + "@" + username + "@" + m.messageId + "@" + encodedKeywords);
                 StoreKeywordsMessage storeKeywordsMessage = new StoreKeywordsMessage(username, m.chatId, signature, keywords, m.messageId);

@@ -35,6 +35,8 @@ public class ConversationViewUI implements MessageObserver {
     private final Peer user;
     private final MainScreenUI mainUI;
 
+    private boolean subscribeLater = false;
+
     public ConversationViewUI(MainScreenUI mainUI, String recipientName, Peer user, @Nullable Integer x, @Nullable Integer y) {
         this.mainUI = mainUI;
         this.receiverUsername = recipientName;
@@ -45,11 +47,10 @@ public class ConversationViewUI implements MessageObserver {
         initialize(recipientName,x,y);
     }
 
-
     private void initialize(String recipientName, Integer x, Integer y) {
         frame = new JFrame("Conversation with " + recipientName);
         frame.setSize(400, 400);
-        //MainScreenUI.centerFrameOnScreen(frame);
+
         if (x==null){
             frame.setLocation(mainUI.getFrame().getX(), mainUI.getFrame().getY());
         } else {
@@ -61,6 +62,9 @@ public class ConversationViewUI implements MessageObserver {
         messageDisplayArea = new JTextArea();
         messageDisplayArea.setEditable(false);
         String chatId = MessagesRepository.mr().getChatId(recipientName);
+        if(chatId == null) {
+            subscribeLater = true;
+        }
         MessagesRepository.mr().subscribe(this, chatId);
         for (StorageMessage m : MessagesRepository.mr().getChatHistory(chatId)) updateMessage(m);
 
@@ -72,8 +76,6 @@ public class ConversationViewUI implements MessageObserver {
         sendButton = new JButton("Send");
         backButton = new JButton("Back");
         searchButton = new JButton("Search");
-
-
 
         actionlistener();
         keyListener();
@@ -101,8 +103,6 @@ public class ConversationViewUI implements MessageObserver {
                 System.exit(0);
             }
         });
-
-        System.out.println("conv " +frame.getSize());
     }
 
     public void keyListener() {
@@ -168,6 +168,9 @@ public class ConversationViewUI implements MessageObserver {
             String signature = user.encryptionManager.signMessage(plaintext);
             ChatMessage message = new ChatMessage(signature, plaintext);
             String chatId = MessagesRepository.mr().getChatId(receiverUsername);
+            if(subscribeLater) {
+                MessagesRepository.mr().subscribe(this, chatId);
+            }
             StorageMessage messageToStore = new StorageMessage(message, user.username, chatId);
             MessagesRepository.mr().addMessage(messageToStore);
 

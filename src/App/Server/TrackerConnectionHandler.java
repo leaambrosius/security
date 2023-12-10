@@ -232,8 +232,8 @@ record TrackerConnectionHandler(Socket clientSocket) implements Runnable {
                 return SearchingResultMessage.getNACK();
             }
 
-            if (user.verifySignature(signature, chatId + "@" + username+"@"+encryptedKeyword) && RemoteStorage.hasUserAccessToChat(username, chatId)) {
-                ArrayList<String> messageIds = RemoteStorage.getMessagesForKeywordAndChatId(message,chatId);
+            if (user.verifySignature(signature, chatId + "@" + username+ "@" +encryptedKeyword) && RemoteStorage.hasUserAccessToChat(username, chatId)) {
+                ArrayList<String> messageIds = RemoteStorage.getMessagesForKeywordAndChatId(encryptedKeyword, chatId);
                 String serializedMessages = String.join("@", messageIds);
                 SearchingResultMessage response = new SearchingResultMessage(chatId, serializedMessages);
                 return response.encode();

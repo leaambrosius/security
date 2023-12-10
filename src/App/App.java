@@ -1,6 +1,7 @@
 package App;
 
 import App.Client.Peer;
+import App.Storage.FileManager;
 import App.Storage.StorageMessage;
 import App.UI.MainScreenUI;
 import App.UI.UsernameSubmitUI;
@@ -23,8 +24,10 @@ public class App {
     public static void runMainUI(String username) {
         try {
             Peer user = new Peer(username, serverIP, serverPort, localPort);
+            FileManager.setUsername(username);
             MainScreenUI mainScreen = new MainScreenUI(user);
         } catch (Exception e) {
+            e.printStackTrace();
             System.exit(1);
         }
     }

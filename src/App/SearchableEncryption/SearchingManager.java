@@ -28,20 +28,18 @@ public class SearchingManager {
        return porterStemmer.stem(query);
    }
 
-   public static void putMessages(ArrayList<String> messagesIds, String keyword, String chatId){
+   public static void putMessages(ArrayList<String> messagesIds, String chatId, String query){
       ArrayList<StorageMessage> history = MessagesRepository.mr().getChatHistory(chatId);
-      ArrayList<StorageMessage> filteredHistory = (ArrayList<StorageMessage>)
-              history.stream().filter(m-> messagesIds.contains(m.messageId)).toList();
-      for(StorageMessage m : filteredHistory){
-         if(m.message.contains(keyword) && listeners.containsKey(keyword)){
-             listeners.get(keyword).updateMessage(m);
-         }
-      }
+
+       for (StorageMessage m : history) {
+           if (messagesIds.contains(m.messageId) && m.message.contains(query) && listeners.containsKey(query)) {
+               listeners.get(query).updateMessage(m);
+           }
+       }
    }
 
    public static ArrayList<String> getKeywords(String m) {
        ArrayList<String> extractedKeywords = new ArrayList<>();
-
        try {
            // Load English POS model
            POSModel posModel = new POSModel(Paths.get("resources/en-pos-maxent.bin"));
@@ -60,7 +58,7 @@ public class SearchingManager {
            // Remove stop words based on their POS tags
            for (int i = 0; i < tokens.length; i++) {
                if (!isStopTag(tags[i], stopTags)) {
-                   extractedKeywords.add(tokens[i]);
+                   extractedKeywords.add(getKeyword(tokens[i]));
                }
            }
        } catch (Exception e) {
@@ -79,7 +77,7 @@ public class SearchingManager {
         return false;
    }
 
-   public static void subscribe(String keyword,MessageObserver o){
+   public static void subscribe(String keyword, MessageObserver o) {
        listeners.put(keyword, o);
    }
 

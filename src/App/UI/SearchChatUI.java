@@ -64,21 +64,17 @@ public class SearchChatUI implements MessageObserver {
         panel.add(backButton);
         frame.add(panel, BorderLayout.NORTH);
         frame.add(new JScrollPane(resultList), BorderLayout.CENTER);
-
         frame.setVisible(true);
-
-        System.out.println("search " +frame.getSize());
     }
 
     private void performSearch() {
         String query = searchField.getText();
-
-        String stem = SearchingManager.getKeyword(query);
-        resultList.setText("Search Results for: " + stem);
-
         String chatId = MessagesRepository.mr().getChatId(recipientName);
-        user.searchForKeyword(chatId, stem);
-        SearchingManager.subscribe(stem,this);
+        String stem = SearchingManager.getKeyword(query);
+
+        SearchingManager.subscribe(query, this);
+        resultList.setText("Search Results for: " + query + "\n");
+        user.searchForKeyword(chatId, stem, query);
     }
 
     @Override

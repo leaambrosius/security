@@ -149,7 +149,7 @@ public class Peer {
     }
 
     public void loadMessagesFromRemoteServer(String chatId) {
-        if (wasAccessedWithinMinute(lastReadData)) return;
+        if (wasAccessedWithin10s(lastReadData)) return;
 
         lastReadData = Instant.now();
         executorService.submit(() -> {
@@ -181,7 +181,7 @@ public class Peer {
     }
 
     public void sendMessagesToRemoteServer(String chatId) {
-        if (wasAccessedWithinMinute(lastStoreData)) return;
+        if (wasAccessedWithin10s(lastStoreData)) return;
 
         lastStoreData = Instant.now();
         executorService.submit(() -> {
@@ -214,17 +214,16 @@ public class Peer {
 
     private void sendKeywords(StorageMessage m) {
         executorService.submit(() -> {
-            ArrayList<String> keywords = SearchingManager.getKeywords(m.message);
-            keywords = (ArrayList<String>) keywords.stream()
-                    .map(encryptionManager::getKeywordHash).toList();
-            ArrayList<String> serializedMessages = new ArrayList<>();
-
+            ArrayList<String> plaintextKeywords = SearchingManager.getKeywords(m.message);
+            ArrayList<String> keywords = new ArrayList<>();
+            for (String word : plaintextKeywords) {
+                keywords.add(encryptionManager.getKeywordHash(word));
+            }
             try {
                 String encodedKeywords = String.join("@", keywords);
                 String signature = encryptionManager.signMessage(m.chatId + "@" + username + "@" + m.messageId + "@" + encodedKeywords);
-                StoreKeywordsMessage storeKeywordsMessage = new StoreKeywordsMessage(username, m.chatId, signature, serializedMessages, m.messageId);
+                StoreKeywordsMessage storeKeywordsMessage = new StoreKeywordsMessage(username, m.chatId, signature, keywords, m.messageId);
                 String serverResponse = sendToServer(storeKeywordsMessage.encode());
-
                 ResponseMessage response = ResponseMessage.fromString(serverResponse);
                 if (response.isAck()) logger.log(Level.INFO, "Keywords stored remotely successfully");
                 else logger.log(Level.WARNING, "Failed to store keywords remotely");
@@ -297,24 +296,22 @@ public class Peer {
         this.listener = listener;
     }
 
-    private boolean wasAccessedWithinMinute(Instant access) {
+    private boolean wasAccessedWithin10s(Instant access) {
         Instant now = Instant.now();
-        Instant minuteAgo = now.minusSeconds(60);
+        Instant minuteAgo = now.minusSeconds(10);
         return access != null && access.isAfter(minuteAgo);
     }
 
-    public void searchForKeyword( String chatId, String keyword){
+    public void searchForKeyword( String chatId, String keyword, String fullKeyword){
         executorService.submit(() -> {
             try {
                 String encryptedKeyword = encryptionManager.getKeywordHash(keyword);
                 String signature = encryptionManager.signMessage(chatId + "@" + username+ "@" + encryptedKeyword);
-                SearchChatMessage searchChatMessage = new SearchChatMessage(username, chatId, encryptedKeyword,signature);
+                SearchChatMessage searchChatMessage = new SearchChatMessage(username, chatId, encryptedKeyword, signature);
                 String serverResponse = sendToServer(searchChatMessage.encode());
-
                 SearchingResultMessage searchingResultMessage = SearchingResultMessage.fromString(serverResponse);
                 ArrayList<String> serializedMessageIds = searchingResultMessage.getSerializedDataList();
-
-                SearchingManager.putMessages(serializedMessageIds,keyword,chatId);
+                SearchingManager.putMessages(serializedMessageIds, chatId, fullKeyword);
             } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException | InvalidMessageException e) {
                 logger.log(Level.WARNING, "Failed to fetch search results " + e);
             }

@@ -97,8 +97,12 @@ public class RemoteStorage {
         Connection connection = CloudConnectionPoolFactory.getConnection();
 
         ArrayList<String> messages = new ArrayList<>();
-        String query = "SELECT message_id FROM messages JOIN keywords ON messages.message_id = keywords.message_id " +
-                "WHERE keywords.keyword = ? AND messages.chat_id = ?";
+        String query = "SELECT DISTINCT m.message_id " +
+                "FROM messages m " +
+                "JOIN keywords k ON m.message_id = k.message_id " +
+                "JOIN chats c ON m.chat_id = c.chat_id " +
+                "WHERE k.keyword = ? AND c.chat_id = ?";
+
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, keyword);
             statement.setString(2, chatId);
@@ -109,8 +113,8 @@ public class RemoteStorage {
             }
         } finally {
             connection.close();
+            return messages;
         }
-        return messages;
     }
 
     public static void insertKeywordMessages(ArrayList<String> keywords, String messageId) throws SQLException {

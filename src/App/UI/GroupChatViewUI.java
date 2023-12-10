@@ -4,10 +4,10 @@ import App.Client.Peer;
 import App.Client.PeerConnection;
 import App.Messages.GroupInvitationMessage;
 import App.Messages.GroupMessage;
+import App.Storage.GroupRecord;
 import App.Storage.MessagesRepository;
 import App.Storage.StorageMessage;
 
-import javax.crypto.KeyGenerator;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -18,7 +18,6 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -65,8 +64,8 @@ public class GroupChatViewUI implements MessageObserver  {
     }
 
     public void inviteMembers() throws NoSuchAlgorithmException {
-        String storageKey = Base64.getEncoder().encodeToString(KeyGenerator.getInstance("AES").generateKey().getEncoded());;
-        GroupInvitationMessage groupInvitationMessage = new GroupInvitationMessage(groupName, members, storageKey);
+        GroupRecord group = MessagesRepository.mr().groups.get(groupName);
+        GroupInvitationMessage groupInvitationMessage = new GroupInvitationMessage(groupName, members, group.symmetricKey);
         for (String member : members) {
             PeerConnection receiver = user.peerConnections.get(member);
             if (receiver != null) {

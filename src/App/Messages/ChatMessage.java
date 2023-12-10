@@ -1,6 +1,10 @@
 package App.Messages;
 
+import App.Client.EncryptionManager;
 import Utils.InvalidMessageException;
+
+import java.security.SecureRandom;
+import java.util.Base64;
 
 // MESSAGE @ MESSAGE_ID @ TIMESTAMP @ SIGNATURE @ MESSAGE
 public class ChatMessage extends Message {
@@ -42,8 +46,10 @@ public class ChatMessage extends Message {
     }
 
     private String generateMessageId() {
-        String concatenated = messageText + "@" + timestamp;
-        return String.valueOf(concatenated.hashCode());
+        SecureRandom secureRandom = new SecureRandom();
+        byte[] randomBytes = new byte[16];
+        secureRandom.nextBytes(randomBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }
 
     public static ChatMessage fromString(String message) throws InvalidMessageException {
